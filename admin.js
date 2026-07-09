@@ -1,28 +1,4 @@
-// ==================== RND STAKING PLATFORM - BACKUP & RECOVERY SYSTEM v3.0 ====================
-// admin.js - Production Backup Manager Module
-// All sensitive operations use Cloud Functions for server-side processing
-
-(function() {
-    'use strict';
-
-    // Check admin session with Firebase Auth
-    const session = localStorage.getItem('adminSession');
-    if (!session) {
-        window.location.href = 'admin-login.html';
-        return;
-    }
-
-    try {
-        window.currentAdmin = JSON.parse(session);
-        if (!window.currentAdmin.uid || !window.currentAdmin.email) {
-            window.location.href = 'admin-login.html';
-            return;
-        }
-    } catch(e) {
-        window.location.href = 'admin-login.html';
-        return;
-    }
-})();
+// ==================== RND BACKUP SYSTEM v3.0 - COMPLETE LOGIC ====================
 
 // ==================== FIREBASE CONFIG ====================
 const MAIN_FIREBASE_CONFIG = {
@@ -45,311 +21,112 @@ const BACKUP_FIREBASE_CONFIG = {
     appId: "1:468625887938:web:598ec27c28bcf6b04105da"
 };
 
-// ==================== INITIALIZE FIREBASE ====================
+// ==================== INITIALIZE ====================
 let mainApp, backupApp, mainDB, backupDB, functions, auth;
 
 function initializeFirebase() {
-    try {
-        mainApp = firebase.app('mainApp');
-    } catch(e) {
+    try { mainApp = firebase.app('mainApp'); } catch(e) {
         mainApp = firebase.initializeApp(MAIN_FIREBASE_CONFIG, 'mainApp');
     }
-
-    try {
-        backupApp = firebase.app('backupApp');
-    } catch(e) {
+    try { backupApp = firebase.app('backupApp'); } catch(e) {
         backupApp = firebase.initializeApp(BACKUP_FIREBASE_CONFIG, 'backupApp');
     }
-
     mainDB = firebase.database(mainApp);
     backupDB = firebase.database(backupApp);
     functions = firebase.functions(mainApp);
     auth = firebase.auth(mainApp);
-
-    // Verify admin session with Firebase
-    verifyAdminSession();
-
-    console.log('[RND Backup v3.0] Firebase initialized');
-}
-
-// ==================== VERIFY ADMIN SESSION ====================
-async function verifyAdminSession() {
-    try {
-        const user = auth.currentUser;
-        if (!user) {
-            // Try to sign in with session
-            const session = localStorage.getItem('adminSession');
-            if (session) {
-                const admin = JSON.parse(session);
-                // Re-authenticate silently
-                // For production, use custom claims
-            }
-        }
-    } catch(e) {
-        console.error('Session verification failed:', e);
-    }
 }
 
 // ==================== DATA PATHS ====================
-const SYNC_PATHS = [
-    'users', 'profiles', 'wallets', 'deposits', 'withdrawals',
-    'referrals', 'dailyReleases', 'staking', 'packages',
-    'transactions', 'incomeHistory', 'rewardHistory'
-];
+const SYNC_PATHS = ['users', 'profiles', 'wallets', 'deposits', 'withdrawals', 'referrals', 'dailyReleases', 'staking', 'packages', 'transactions', 'incomeHistory', 'rewardHistory'];
+const USER_DATA_PATHS = ['users', 'profiles', 'wallets', 'deposits', 'withdrawals', 'referrals', 'dailyReleases', 'staking', 'packages', 'transactions', 'incomeHistory', 'rewardHistory'];
 
-const USER_DATA_PATHS = [
-    'users', 'profiles', 'wallets', 'deposits', 'withdrawals',
-    'referrals', 'dailyReleases', 'staking', 'packages',
-    'transactions', 'incomeHistory', 'rewardHistory'
-];
-
-// ==================== STATE MANAGEMENT ====================
+// ==================== STATE ====================
 const BackupState = {
-    logs: [],
-    deletedUsers: [],
-    backupHistory: [],
-    failedSyncCount: 0,
-    lastSyncTime: null,
-    lastBackupTime: null,
-    isSyncing: false,
-    autoSyncEnabled: true,
-    deleteAlertsEnabled: true,
-    maintenanceMode: false,
-
+    logs: [], deletedUsers: [], failedSyncCount: 0, lastSyncTime: null, lastBackupTime: null,
     load() {
         this.logs = JSON.parse(localStorage.getItem('rnd_backup_logs_v3') || '[]');
         this.deletedUsers = JSON.parse(localStorage.getItem('rnd_deleted_users_v3') || '[]');
-        this.backupHistory = JSON.parse(localStorage.getItem('rnd_backup_history_v3') || '[]');
         this.failedSyncCount = parseInt(localStorage.getItem('rnd_failed_sync_v3') || '0');
         this.lastSyncTime = localStorage.getItem('rnd_last_sync_v3');
         this.lastBackupTime = localStorage.getItem('rnd_last_backup_v3');
-        this.autoSyncEnabled = localStorage.getItem('rnd_auto_sync_v3') !== 'false';
-        this.deleteAlertsEnabled = localStorage.getItem('rnd_delete_alerts_v3') !== 'false';
-        this.maintenanceMode = localStorage.getItem('rnd_maintenance_mode_v3') === 'true';
     },
-
     save() {
         localStorage.setItem('rnd_backup_logs_v3', JSON.stringify(this.logs));
         localStorage.setItem('rnd_deleted_users_v3', JSON.stringify(this.deletedUsers));
-        localStorage.setItem('rnd_backup_history_v3', JSON.stringify(this.backupHistory));
         localStorage.setItem('rnd_failed_sync_v3', this.failedSyncCount.toString());
         localStorage.setItem('rnd_last_sync_v3', this.lastSyncTime || '');
         localStorage.setItem('rnd_last_backup_v3', this.lastBackupTime || '');
-        localStorage.setItem('rnd_auto_sync_v3', this.autoSyncEnabled.toString());
-        localStorage.setItem('rnd_delete_alerts_v3', this.deleteAlertsEnabled.toString());
-        localStorage.setItem('rnd_maintenance_mode_v3', this.maintenanceMode.toString());
     }
 };
 
-// ==================== UTILITY FUNCTIONS ====================
+// ==================== UTILS ====================
 const Utils = {
     formatDate(isoString) {
         if (!isoString) return '--';
-        try {
-            const d = new Date(isoString);
-            return d.toLocaleString('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-        } catch(e) {
-            return '--';
-        }
+        try { return new Date(isoString).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+        catch(e) { return '--'; }
     },
-
     formatRelativeTime(isoString) {
         if (!isoString) return 'Never';
         const diff = Date.now() - new Date(isoString).getTime();
-        const seconds = Math.floor(diff / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-
-        if (seconds < 60) return 'Just now';
-        if (minutes < 60) return minutes + 'm ago';
-        if (hours < 24) return hours + 'h ago';
-        if (days < 30) return days + 'd ago';
+        const sec = Math.floor(diff / 1000), min = Math.floor(sec / 60), hr = Math.floor(min / 60), day = Math.floor(hr / 24);
+        if (sec < 60) return 'Just now';
+        if (min < 60) return min + 'm ago';
+        if (hr < 24) return hr + 'h ago';
+        if (day < 30) return day + 'd ago';
         return this.formatDate(isoString);
     },
-
-    deepEqual(obj1, obj2) {
-        if (obj1 === obj2) return true;
-        if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
-        if (obj1 === null || obj2 === null) return false;
-        return JSON.stringify(obj1) === JSON.stringify(obj2);
+    deepEqual(a, b) { return JSON.stringify(a) === JSON.stringify(b); },
+    showNotification(msg, type, duration) {
+        type = type || 'success'; duration = duration || 4000;
+        const n = document.getElementById('notification');
+        if (!n) return;
+        const colors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#3b82f6' };
+        n.style.background = colors[type] || colors.success;
+        n.textContent = msg;
+        n.className = 'notification-toast ' + type + ' show';
+        clearTimeout(n._timeout);
+        n._timeout = setTimeout(() => n.classList.remove('show'), duration);
     },
-
-    generateId() {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-    },
-
-    sleep(ms) {
-        return new Promise(r => setTimeout(r, ms));
-    },
-
-    showNotification(message, type, duration) {
-        type = type || 'success';
-        duration = duration || 4000;
-        const notif = document.getElementById('notification');
-        if (!notif) return;
-
-        const colors = {
-            success: '#10b981',
-            error: '#ef4444',
-            warning: '#f59e0b',
-            info: '#3b82f6'
-        };
-
-        notif.style.background = colors[type] || colors.success;
-        notif.textContent = message;
-        notif.className = `notification-toast ${type} show`;
-        
-        clearTimeout(notif._timeout);
-        notif._timeout = setTimeout(() => {
-            notif.classList.remove('show');
-        }, duration);
-    },
-
-    truncate(str, len) {
-        if (!str) return '';
-        if (str.length <= len) return str;
-        return str.substring(0, len) + '...';
-    },
-
-    safeStringify(obj) {
-        try {
-            return JSON.stringify(obj, null, 2);
-        } catch(e) {
-            return String(obj);
-        }
-    },
-
-    isSuperAdmin() {
-        return window.currentAdmin?.isSuperAdmin === true;
-    },
-
-    isLiveDomain() {
-        // Check if on live production domain
-        const hostname = window.location.hostname;
-        return !hostname.includes('localhost') && 
-               !hostname.includes('127.0.0.1') &&
-               !hostname.includes('test') &&
-               !hostname.includes('dev');
-    },
-
-    getDomainType() {
-        const hostname = window.location.hostname;
-        if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) return 'local';
-        if (hostname.includes('test') || hostname.includes('dev')) return 'test';
-        return 'production';
-    }
+    isSuperAdmin() { return window.currentAdmin?.isSuperAdmin === true; },
+    isLiveDomain() { const h = window.location.hostname; return !h.includes('localhost') && !h.includes('127.0.0.1'); }
 };
 
-// ==================== LOGGING SYSTEM ====================
+// ==================== LOGGER ====================
 const Logger = {
-    add(action, status, details, metadata) {
-        details = details || '';
-        metadata = metadata || {};
-        const log = {
-            id: Utils.generateId(),
-            timestamp: new Date().toISOString(),
-            action: action,
-            status: status,
-            details: details,
-            admin: window.currentAdmin?.email || 'Admin',
-            uid: window.currentAdmin?.uid || 'unknown',
-            domain: Utils.getDomainType()
-        };
-
+    add(action, status, details) {
+        const log = { id: Date.now() + Math.random().toString(36).substr(2, 5), timestamp: new Date().toISOString(), action, status, details, admin: window.currentAdmin?.email || 'Admin' };
         BackupState.logs.unshift(log);
         if (BackupState.logs.length > 1000) BackupState.logs.pop();
         BackupState.save();
-
         updateLogBadge();
-
-        const emoji = status === 'success' ? '✅' : status === 'failed' ? '❌' : '⚠️';
-        console.log(`[RND Backup] ${emoji} ${action} - ${status}: ${details}`);
-
-        // Also log to Firebase for audit
-        try {
-            mainDB.ref('backupLogs').push(log);
-        } catch(e) {}
-
         return log;
     },
-
-    getRecent(limit) {
-        limit = limit || 100;
-        return BackupState.logs.slice(0, limit);
-    },
-
-    clear() {
-        BackupState.logs = [];
-        BackupState.save();
-        updateLogBadge();
-    },
-
-    export() {
-        return JSON.stringify(BackupState.logs, null, 2);
-    }
+    getRecent(limit) { return BackupState.logs.slice(0, limit || 100); },
+    clear() { BackupState.logs = []; BackupState.save(); updateLogBadge(); },
+    export() { return JSON.stringify(BackupState.logs, null, 2); }
 };
 
-// ==================== CLOUD FUNCTIONS CLIENT ====================
-class CloudFunctionClient {
-    constructor() {
-        this.functions = functions;
-    }
-
-    async call(functionName, data) {
+// ==================== CLOUD FUNCTIONS ====================
+const cloud = {
+    async call(name, data) {
         try {
-            const func = this.functions.httpsCallable(functionName);
-            const result = await func(data || {});
+            const fn = functions.httpsCallable(name);
+            const result = await fn(data || {});
             return result.data;
-        } catch(err) {
-            console.error(`Cloud Function ${functionName} error:`, err);
-            // Check for permission errors
-            if (err.code === 'permission-denied') {
-                Utils.showNotification('Permission denied. Super Admin required.', 'error');
-            }
-            throw err;
+        } catch(e) {
+            console.error('Cloud Function error:', e);
+            throw e;
         }
-    }
+    },
+    async restoreUser(uid) { return this.call('restoreUser', { uid }); },
+    async restoreAllUsers() { return this.call('restoreAllUsers', {}); },
+    async downloadBackup() { return this.call('downloadBackup', {}); },
+    async runHealthCheck() { return this.call('runHealthCheck', {}); }
+};
 
-    async restoreUser(uid) {
-        return this.call('restoreUser', { uid });
-    }
-
-    async restoreAllUsers() {
-        return this.call('restoreAllUsers', {});
-    }
-
-    async downloadBackup() {
-        return this.call('downloadBackup', {});
-    }
-
-    async getBackupStatus() {
-        return this.call('getBackupStatus', {});
-    }
-
-    async getBackupHistory() {
-        return this.call('getBackupHistory', {});
-    }
-
-    async runHealthCheck() {
-        return this.call('runHealthCheck', {});
-    }
-
-    async toggleMaintenance(enabled) {
-        return this.call('toggleMaintenance', { enabled });
-    }
-}
-
-const cloud = new CloudFunctionClient();
-
-// ==================== ADMIN UI FUNCTIONS ====================
+// ==================== UI FUNCTIONS ====================
 
 function updateLogBadge() {
     const badge = document.getElementById('logBadge');
@@ -363,84 +140,84 @@ function updateLogBadge() {
 function renderLogs() {
     const container = document.getElementById('activityLog');
     if (!container) return;
-
     const logs = Logger.getRecent(100);
     if (logs.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-clock-rotate-left"></i>
-                <h3>No Activity Logs</h3>
-                <p>Backup activities will appear here</p>
-            </div>
-        `;
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-clock-rotate-left"></i><h3>No Activity Logs</h3><p>Backup activities will appear here</p></div>';
         return;
     }
-
     let html = '';
     logs.forEach(log => {
-        const badgeClass = log.status === 'success' ? 'success' : 
-                           log.status === 'failed' ? 'failed' : 'warning';
-        html += `
-            <div class="log-entry">
-                <span class="log-time">${Utils.formatDate(log.timestamp)}</span>
-                <span class="log-badge ${badgeClass}">${log.status}</span>
-                <span><strong>${log.action}</strong></span>
-                <span style="color: var(--text-muted); margin-left: auto; font-size: 0.8rem;">${log.details || ''}</span>
-            </div>
-        `;
+        const cls = log.status === 'success' ? 'success' : log.status === 'failed' ? 'failed' : 'warning';
+        html += `<div class="log-entry"><span class="log-time">${Utils.formatDate(log.timestamp)}</span><span class="log-badge ${cls}">${log.status}</span><span><strong>${log.action}</strong></span><span style="color:var(--text-muted);margin-left:auto;font-size:0.8rem;">${log.details || ''}</span></div>`;
     });
     container.innerHTML = html;
 }
 
-function refreshLogs() {
-    renderLogs();
-    Utils.showNotification('Logs refreshed', 'info');
-}
-
-function clearLogs() {
-    if (!confirm('Clear all activity logs?')) return;
-    Logger.clear();
-    renderLogs();
-    Utils.showNotification('Logs cleared', 'info');
-}
-
+function refreshLogs() { renderLogs(); Utils.showNotification('Logs refreshed', 'info'); }
+function clearLogs() { if (!confirm('Clear all logs?')) return; Logger.clear(); renderLogs(); Utils.showNotification('Logs cleared', 'info'); }
 function exportLogs() {
     const data = Logger.export();
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `RND_Backup_Logs_${new Date().toISOString().slice(0,10)}.json`;
+    a.download = 'RND_Backup_Logs_' + new Date().toISOString().slice(0, 10) + '.json';
     a.click();
     URL.revokeObjectURL(url);
     Utils.showNotification('Logs exported', 'success');
 }
 
-// ==================== DASHBOARD ====================
+function showSection(sectionId) {
+    document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById(sectionId);
+    if (target) target.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const items = document.querySelectorAll('.nav-item');
+    items.forEach(item => {
+        const text = item.textContent.trim().toLowerCase();
+        const id = sectionId.replace('-', ' ');
+        if (text.includes(id) || id.includes(text)) item.classList.add('active');
+    });
+    if (window.innerWidth <= 768) toggleSidebar(false);
+    if (sectionId === 'logs') renderLogs();
+    if (sectionId === 'deleted') renderDeletedUsers();
+    if (sectionId === 'status') checkBackupStatus();
+    if (sectionId === 'dashboard') loadDashboard();
+    if (sectionId === 'health') runHealthCheck();
+}
 
+function toggleSidebar(force) {
+    const s = document.getElementById('sidebar'), o = document.getElementById('mobileOverlay');
+    const open = s.classList.contains('open');
+    if (force === false || (force === undefined && open)) { s.classList.remove('open'); o.classList.remove('active'); }
+    else { s.classList.add('open'); o.classList.add('active'); }
+}
+
+function openModal(title, body, footer) {
+    document.getElementById('modalTitle').innerHTML = '<i class="fas fa-info-circle"></i> ' + title;
+    document.getElementById('modalBody').innerHTML = body || '';
+    document.getElementById('modalFooter').innerHTML = footer || '';
+    document.getElementById('modal').style.display = 'flex';
+}
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+// ==================== DASHBOARD ====================
 async function loadDashboard() {
     try {
         await checkConnections();
         await loadStats();
         loadRecentActivity();
-        loadRecentBackups();
         updateAdminProfile();
         updateRestoreAllButton();
-        updateMaintenanceBanner();
-    } catch(err) {
-        console.error('Dashboard load error:', err);
-    }
+    } catch(e) { console.error('Dashboard error:', e); }
 }
 
 async function checkConnections() {
     try {
-        const mainSnap = await mainDB.ref('.info/connected').once('value');
-        const mainOnline = mainSnap.val() !== null;
-        document.getElementById('mainStatusDot').className = `status-dot ${mainOnline ? 'online' : 'offline'}`;
-
-        const backupSnap = await backupDB.ref('.info/connected').once('value');
-        const backupOnline = backupSnap.val() !== null;
-        document.getElementById('backupStatusDot').className = `status-dot ${backupOnline ? 'online' : 'offline'}`;
+        const ms = await mainDB.ref('.info/connected').once('value');
+        document.getElementById('mainStatusDot').className = 'status-dot ' + (ms.val() !== null ? 'online' : 'offline');
+        const bs = await backupDB.ref('.info/connected').once('value');
+        document.getElementById('backupStatusDot').className = 'status-dot ' + (bs.val() !== null ? 'online' : 'offline');
     } catch(e) {
         document.getElementById('mainStatusDot').className = 'status-dot offline';
         document.getElementById('backupStatusDot').className = 'status-dot offline';
@@ -449,71 +226,33 @@ async function checkConnections() {
 
 async function loadStats() {
     try {
-        const usersSnap = await mainDB.ref('users').once('value');
-        const users = usersSnap.val() || {};
-        const totalUsers = Object.keys(users).length;
-        const activeCount = Object.values(users).filter(u => u.status === 'active').length;
-
-        document.getElementById('totalUsers').textContent = totalUsers;
-        document.getElementById('activeUsers').textContent = activeCount;
+        const snap = await mainDB.ref('users').once('value');
+        const users = snap.val() || {};
+        const total = Object.keys(users).length;
+        const active = Object.values(users).filter(u => u.status === 'active').length;
+        document.getElementById('totalUsers').textContent = total;
+        document.getElementById('activeUsers').textContent = active;
         document.getElementById('lastSync').textContent = Utils.formatRelativeTime(BackupState.lastSyncTime);
         document.getElementById('lastBackup').textContent = Utils.formatRelativeTime(BackupState.lastBackupTime);
         document.getElementById('failedSync').textContent = BackupState.failedSyncCount;
         document.getElementById('deletedUsersCount').textContent = BackupState.deletedUsers.length;
         document.getElementById('deletedBadge').textContent = BackupState.deletedUsers.length;
-
         await detectDeletedUsers();
-    } catch(e) {
-        console.error('Stats load error:', e);
-    }
+    } catch(e) { console.error('Stats error:', e); }
 }
 
 function loadRecentActivity() {
     const container = document.getElementById('recentActivity');
     if (!container) return;
-
     const logs = Logger.getRecent(10);
     if (logs.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:24px; color: var(--text-muted);">No recent activity</div>`;
+        container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);">No recent activity</div>';
         return;
     }
-
     let html = '';
     logs.forEach(log => {
-        const badgeClass = log.status === 'success' ? 'success' : 
-                           log.status === 'failed' ? 'failed' : 'warning';
-        html += `
-            <div class="log-entry">
-                <span class="log-time">${Utils.formatDate(log.timestamp)}</span>
-                <span class="log-badge ${badgeClass}">${log.status}</span>
-                <span><strong>${log.action}</strong></span>
-                <span style="color: var(--text-muted); margin-left: auto; font-size: 0.8rem;">${log.details || ''}</span>
-            </div>
-        `;
-    });
-    container.innerHTML = html;
-}
-
-function loadRecentBackups() {
-    const container = document.getElementById('recentBackups');
-    if (!container) return;
-
-    const history = BackupState.backupHistory.slice(0, 5);
-    if (history.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:16px; color: var(--text-muted);">No backup history available</div>`;
-        return;
-    }
-
-    let html = '';
-    history.forEach(item => {
-        html += `
-            <div class="log-entry">
-                <span class="log-time">${Utils.formatDate(item.timestamp)}</span>
-                <span class="log-badge ${item.status === 'success' ? 'success' : 'failed'}">${item.status || 'info'}</span>
-                <span><strong>${item.type || 'Manual'}</strong></span>
-                <span style="color: var(--text-muted); margin-left: auto; font-size: 0.8rem;">${item.totalUsers || 0} users</span>
-            </div>
-        `;
+        const cls = log.status === 'success' ? 'success' : log.status === 'failed' ? 'failed' : 'warning';
+        html += `<div class="log-entry"><span class="log-time">${Utils.formatDate(log.timestamp)}</span><span class="log-badge ${cls}">${log.status}</span><span><strong>${log.action}</strong></span><span style="color:var(--text-muted);margin-left:auto;font-size:0.8rem;">${log.details || ''}</span></div>`;
     });
     container.innerHTML = html;
 }
@@ -521,1292 +260,458 @@ function loadRecentBackups() {
 function updateAdminProfile() {
     const admin = window.currentAdmin;
     if (!admin) return;
-
     const avatar = document.getElementById('adminAvatar');
+    if (avatar) avatar.textContent = admin.email.charAt(0).toUpperCase();
     const nameEl = document.getElementById('adminName');
+    if (nameEl) nameEl.textContent = admin.email;
     const roleEl = document.getElementById('adminRole');
-
-    if (avatar) {
-        avatar.textContent = admin.email.charAt(0).toUpperCase();
-    }
-    if (nameEl) {
-        nameEl.textContent = admin.email;
-    }
-    if (roleEl) {
-        roleEl.innerHTML = admin.isSuperAdmin ? 
-            '<span class="super">★ Super Admin</span>' : 
-            '<span>Admin</span>';
-    }
+    if (roleEl) roleEl.innerHTML = admin.isSuperAdmin ? '<span class="super">★ Super Admin</span>' : '<span>Admin</span>';
 }
 
 function updateRestoreAllButton() {
     const btn = document.getElementById('restoreAllBtn');
     const badge = document.getElementById('restoreAllBadge');
-    const permissionEl = document.getElementById('restoreAllPermission');
-    const statusEl = document.getElementById('restoreAllStatus');
-    const warningEl = document.getElementById('restoreAllWarning');
-
-    const isSuperAdmin = Utils.isSuperAdmin();
+    const perm = document.getElementById('restoreAllPermission');
+    const warn = document.getElementById('restoreAllWarning');
+    const isSuper = Utils.isSuperAdmin();
     const isLive = Utils.isLiveDomain();
-
     if (btn) {
-        if (isSuperAdmin && !isLive) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-rotate-left"></i> Restore All Users';
-            btn.className = 'btn btn-danger btn-lg';
-        } else if (isSuperAdmin && isLive) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-lock"></i> 🔒 Live Domain Locked';
-            btn.className = 'btn btn-outline btn-lg';
-        } else {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-lock"></i> Super Admin Only';
-            btn.className = 'btn btn-outline btn-lg';
-        }
+        if (isSuper && !isLive) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-rotate-left"></i> Restore All Users'; btn.className = 'btn btn-danger btn-lg'; }
+        else if (isSuper && isLive) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-lock"></i> 🔒 Live Domain Locked'; btn.className = 'btn btn-outline btn-lg'; }
+        else { btn.disabled = true; btn.innerHTML = '<i class="fas fa-lock"></i> Super Admin Only'; btn.className = 'btn btn-outline btn-lg'; }
     }
-
-    if (badge) {
-        if (isSuperAdmin && !isLive) {
-            badge.textContent = 'UNLOCKED';
-            badge.className = 'badge success';
-        } else {
-            badge.textContent = 'LOCKED';
-            badge.className = 'badge danger';
-        }
-    }
-
-    if (permissionEl) {
-        if (isSuperAdmin && !isLive) {
-            permissionEl.innerHTML = '<span style="color: var(--secondary);">✓ Super Admin Access Granted</span>';
-        } else if (isSuperAdmin && isLive) {
-            permissionEl.innerHTML = '<span style="color: var(--warning);">⚠️ Live Domain Protection Active</span>';
-        } else {
-            permissionEl.innerHTML = '<span style="color: var(--danger);">❌ Super Admin Required</span>';
-        }
-    }
-
-    if (warningEl) {
-        if (isSuperAdmin && !isLive) {
-            warningEl.innerHTML = '⚠️ Type <strong>"RESTORE ALL"</strong> to confirm';
-            warningEl.style.color = 'var(--warning)';
-        } else {
-            warningEl.innerHTML = '🔒 <strong>Restore All</strong> is locked for security';
-            warningEl.style.color = 'var(--text-muted)';
-        }
-    }
+    if (badge) { badge.textContent = (isSuper && !isLive) ? 'UNLOCKED' : 'LOCKED'; badge.className = 'badge ' + ((isSuper && !isLive) ? 'success' : 'danger'); }
+    if (perm) perm.innerHTML = (isSuper && !isLive) ? '<span style="color:var(--secondary);">✓ Super Admin Access</span>' : '<span style="color:var(--danger);">❌ Super Admin Required</span>';
+    if (warn) { warn.innerHTML = (isSuper && !isLive) ? '⚠️ Type <strong>"RESTORE ALL"</strong> to confirm' : '🔒 <strong>Restore All</strong> is locked for security'; }
 }
 
-function updateMaintenanceBanner() {
-    const banner = document.getElementById('maintenanceBanner');
-    const toggle = document.getElementById('maintenanceToggle');
-    
-    if (BackupState.maintenanceMode) {
-        banner.classList.add('active');
-        if (toggle) toggle.checked = true;
-        document.getElementById('maintenanceMessage').textContent = '🚧 Website is under maintenance. Deposits and Withdrawals are temporarily disabled.';
-    } else {
-        banner.classList.remove('active');
-        if (toggle) toggle.checked = false;
-    }
-}
-
-// ==================== NAVIGATION ====================
-
-function showSection(sectionId) {
-    document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
-    
-    const target = document.getElementById(sectionId);
-    if (target) target.classList.add('active');
-
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
-        const text = item.textContent.trim().toLowerCase();
-        const id = sectionId.replace('-', ' ');
-        if (text.includes(id) || id.includes(text)) {
-            item.classList.add('active');
-        }
-    });
-
-    if (window.innerWidth <= 768) {
-        toggleSidebar(false);
-    }
-
-    // Refresh data for specific sections
-    if (sectionId === 'logs') renderLogs();
-    if (sectionId === 'deleted') renderDeletedUsers();
-    if (sectionId === 'status') checkBackupStatus();
-    if (sectionId === 'dashboard') loadDashboard();
-    if (sectionId === 'backup-history') loadBackupHistory();
-    if (sectionId === 'health') runHealthCheck();
-}
-
-function toggleSidebar(force) {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('mobileOverlay');
-    const isOpen = sidebar.classList.contains('open');
-    
-    if (force === false || (force === undefined && isOpen)) {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('active');
-    } else {
-        sidebar.classList.add('open');
-        overlay.classList.add('active');
-    }
-}
-
-window.addEventListener('resize', () => {
-    if (window.innerWidth > 768) {
-        document.getElementById('sidebar').classList.remove('open');
-        document.getElementById('mobileOverlay').classList.remove('active');
-    }
-});
-
-// ==================== MODAL ====================
-
-function openModal(title, body, footer) {
-    document.getElementById('modalTitle').innerHTML = `<i class="fas fa-info-circle"></i> ${title}`;
-    document.getElementById('modalBody').innerHTML = body || '';
-    document.getElementById('modalFooter').innerHTML = footer || '';
-    document.getElementById('modal').classList.add('active');
-}
-
-function closeModal() {
-    document.getElementById('modal').classList.remove('active');
-}
-
-document.getElementById('modal')?.addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeModal();
-});
-
-// ==================== SEARCH USER ====================
-
+// ==================== SEARCH ====================
 async function searchUser() {
     const query = document.getElementById('searchInput').value.trim();
-    if (!query) {
-        Utils.showNotification('Please enter a search query', 'warning');
-        return;
-    }
-
+    if (!query) { Utils.showNotification('Enter a search query', 'warning'); return; }
     const container = document.getElementById('searchResults');
-    container.innerHTML = `
-        <div class="empty-state">
-            <div class="spinner"></div>
-            <p>Searching...</p>
-        </div>
-    `;
-
+    container.innerHTML = '<div class="empty-state"><div class="spinner"></div><p>Searching...</p></div>';
     try {
         const snap = await mainDB.ref('users').once('value');
         const users = snap.val() || {};
         const results = [];
-        const lowerQuery = query.toLowerCase();
-
+        const q = query.toLowerCase();
         Object.entries(users).forEach(([uid, user]) => {
-            if (uid.toLowerCase().includes(lowerQuery) ||
-                (user.email && user.email.toLowerCase().includes(lowerQuery)) ||
-                (user.name && user.name.toLowerCase().includes(lowerQuery)) ||
-                (user.phone && user.phone.includes(query))) {
+            if (uid.toLowerCase().includes(q) || (user.email && user.email.toLowerCase().includes(q)) || (user.name && user.name.toLowerCase().includes(q))) {
                 results.push({ uid, ...user });
             }
         });
-
         if (results.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-search"></i>
-                    <h3>No Users Found</h3>
-                    <p>Try a different search term</p>
-                </div>
-            `;
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-search"></i><h3>No Users Found</h3><p>Try a different search term</p></div>';
             return;
         }
-
-        let html = `
-            <div style="margin-bottom:12px; color: var(--text-muted); font-size:0.9rem;">
-                Found <strong style="color:var(--text);">${results.length}</strong> users
-            </div>
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>UID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
+        let html = `<div style="margin-bottom:12px;color:var(--text-muted);font-size:0.9rem;">Found <strong style="color:var(--text);">${results.length}</strong> users</div><div class="table-responsive"><table class="data-table"><thead><tr><th>UID</th><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
         results.forEach(user => {
-            html += `
-                <tr>
-                    <td class="uid-cell">${Utils.truncate(user.uid, 12)}</td>
-                    <td>${user.name || 'N/A'}</td>
-                    <td>${user.email || 'N/A'}</td>
-                    <td><span class="tag ${user.status === 'active' ? 'tag-success' : 'tag-warning'}">${user.status || 'N/A'}</span></td>
-                    <td class="actions">
-                        <button class="btn btn-outline btn-sm" onclick="compareSingleUser('${user.uid}')">
-                            <i class="fas fa-code-compare"></i>
-                        </button>
-                        <button class="btn btn-success btn-sm" onclick="syncSingleUser('${user.uid}')">
-                            <i class="fas fa-rotate"></i>
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="restoreSingleUser('${user.uid}')">
-                            <i class="fas fa-rotate-left"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
+            html += `<tr><td class="uid-cell">${user.uid.slice(0,12)}</td><td>${user.name || 'N/A'}</td><td>${user.email || 'N/A'}</td><td><span class="tag ${user.status === 'active' ? 'tag-success' : 'tag-warning'}">${user.status || 'N/A'}</span></td><td class="actions"><button class="btn btn-outline btn-sm" onclick="compareSingleUser('${user.uid}')"><i class="fas fa-code-compare"></i></button><button class="btn btn-success btn-sm" onclick="syncSingleUser('${user.uid}')"><i class="fas fa-rotate"></i></button><button class="btn btn-danger btn-sm" onclick="restoreSingleUser('${user.uid}')"><i class="fas fa-rotate-left"></i></button></td></tr>`;
         });
-
-        html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
+        html += '</tbody></table></div>';
         container.innerHTML = html;
-
-    } catch(err) {
-        container.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-circle-exclamation"></i>
-                Error: ${err.message}
-            </div>
-        `;
+    } catch(e) {
+        container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-circle-exclamation"></i> Error: ' + e.message + '</div>';
     }
 }
 
-// ==================== COMPARE DATA ====================
-
+// ==================== COMPARE ====================
 async function compareUserData() {
     const uid = document.getElementById('compareInput').value.trim();
-    if (!uid) {
-        Utils.showNotification('Please enter a UID', 'warning');
-        return;
-    }
+    if (!uid) { Utils.showNotification('Enter a UID', 'warning'); return; }
     await compareSingleUser(uid);
 }
 
 async function compareSingleUser(uid) {
     const container = document.getElementById('compareResults');
-    container.innerHTML = `
-        <div class="empty-state">
-            <div class="spinner"></div>
-            <p>Comparing data...</p>
-        </div>
-    `;
-
+    container.innerHTML = '<div class="empty-state"><div class="spinner"></div><p>Comparing data...</p></div>';
     try {
-        const mainData = {};
-        const backupData = {};
-        let mismatchFound = false;
-        let totalPaths = 0;
-        let matchedPaths = 0;
-
+        const main = {}, backup = {};
+        let mismatch = false, total = 0, matched = 0;
         for (const path of USER_DATA_PATHS) {
-            totalPaths++;
-            const mainSnap = await mainDB.ref(`${path}/${uid}`).once('value');
-            const backupSnap = await backupDB.ref(`${path}/${uid}`).once('value');
-
-            mainData[path] = mainSnap.val();
-            backupData[path] = backupSnap.val();
-
-            if (!Utils.deepEqual(mainData[path], backupData[path])) {
-                mismatchFound = true;
-            } else {
-                matchedPaths++;
-            }
+            total++;
+            const ms = await mainDB.ref(path + '/' + uid).once('value');
+            const bs = await backupDB.ref(path + '/' + uid).once('value');
+            main[path] = ms.val();
+            backup[path] = bs.val();
+            if (!Utils.deepEqual(main[path], backup[path])) mismatch = true;
+            else matched++;
         }
-
-        let html = `<div style="margin-bottom: 16px;">`;
-
-        if (mismatchFound) {
-            html += `
-                <div class="alert alert-warning">
-                    <i class="fas fa-triangle-exclamation"></i>
-                    <div>
-                        <strong>Mismatch Found!</strong>
-                        <br>${matchedPaths}/${totalPaths} paths matched
-                        <br><span style="font-size:0.85rem;">Data differs between Main and Backup Firebase</span>
-                    </div>
-                </div>
-            `;
-        } else {
-            html += `
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i>
-                    <div>
-                        <strong>Data Matched!</strong>
-                        <br>All ${totalPaths} paths are identical
-                    </div>
-                </div>
-            `;
-        }
-        html += `</div>`;
-
-        html += `<div class="compare-grid">`;
-
-        // Main column
-        html += `<div class="compare-column main">
-            <h4><i class="fas fa-server"></i> Main Firebase</h4>`;
+        let html = `<div style="margin-bottom:16px;">${mismatch ? '<div class="alert alert-warning"><i class="fas fa-triangle-exclamation"></i><div><strong>Mismatch Found!</strong><br>' + matched + '/' + total + ' paths matched</div></div>' : '<div class="alert alert-success"><i class="fas fa-check-circle"></i><div><strong>Data Matched!</strong><br>All ' + total + ' paths are identical</div></div>'}</div>`;
+        html += '<div class="compare-grid"><div class="compare-column main"><h4><i class="fas fa-server"></i> Main Firebase</h4>';
         for (const path of USER_DATA_PATHS) {
-            const mainVal = mainData[path];
-            const backupVal = backupData[path];
-            const isMismatch = !Utils.deepEqual(mainVal, backupVal);
-            const status = mainVal !== null && mainVal !== undefined ? 'Present' : 'Missing';
-
-            html += `
-                <div class="compare-row ${isMismatch ? 'mismatch' : ''}">
-                    <span class="label">${path}</span>
-                    <span class="value" style="${isMismatch ? 'color: var(--danger);' : 'color: var(--secondary);'}">
-                        ${status}
-                        ${isMismatch ? ' ❌' : ' ✓'}
-                        ${!isMismatch && mainVal !== null ? ` (${typeof mainVal === 'object' ? Object.keys(mainVal).length : mainVal})` : ''}
-                    </span>
-                </div>
-            `;
-
-            if (isMismatch && mainVal !== null) {
-                const mainStr = typeof mainVal === 'object' ? JSON.stringify(mainVal, null, 2) : String(mainVal);
-                const backupStr = typeof backupVal === 'object' ? JSON.stringify(backupVal, null, 2) : String(backupVal);
-                html += `
-                    <div class="compare-detail" style="margin-left: 0;">
-                        <div style="color: var(--secondary);">Main: ${Utils.truncate(mainStr, 200)}</div>
-                        <div style="color: var(--danger);">Backup: ${Utils.truncate(backupStr, 200)}</div>
-                    </div>
-                `;
-            }
+            const isMis = !Utils.deepEqual(main[path], backup[path]);
+            html += `<div class="compare-row ${isMis ? 'mismatch' : ''}"><span class="label">${path}</span><span class="value" style="${isMis ? 'color:var(--danger);' : 'color:var(--secondary);'}">${main[path] !== null ? 'Present' : 'Missing'} ${isMis ? '❌' : '✓'}</span></div>`;
         }
-        html += `</div>`;
-
-        // Backup column
-        html += `<div class="compare-column backup">
-            <h4><i class="fas fa-shield-halved"></i> Backup Firebase</h4>`;
+        html += '</div><div class="compare-column backup"><h4><i class="fas fa-shield-halved"></i> Backup Firebase</h4>';
         for (const path of USER_DATA_PATHS) {
-            const mainVal = mainData[path];
-            const backupVal = backupData[path];
-            const isMismatch = !Utils.deepEqual(mainVal, backupVal);
-            const status = backupVal !== null && backupVal !== undefined ? 'Present' : 'Missing';
-
-            html += `
-                <div class="compare-row ${isMismatch ? 'mismatch' : ''}">
-                    <span class="label">${path}</span>
-                    <span class="value" style="${isMismatch ? 'color: var(--danger);' : 'color: var(--secondary);'}">
-                        ${status}
-                        ${isMismatch ? ' ❌' : ' ✓'}
-                        ${!isMismatch && backupVal !== null ? ` (${typeof backupVal === 'object' ? Object.keys(backupVal).length : backupVal})` : ''}
-                    </span>
-                </div>
-            `;
+            const isMis = !Utils.deepEqual(main[path], backup[path]);
+            html += `<div class="compare-row ${isMis ? 'mismatch' : ''}"><span class="label">${path}</span><span class="value" style="${isMis ? 'color:var(--danger);' : 'color:var(--secondary);'}">${backup[path] !== null ? 'Present' : 'Missing'} ${isMis ? '❌' : '✓'}</span></div>`;
         }
-        html += `</div>`;
-
-        html += `</div>`;
-
-        if (mismatchFound) {
-            html += `
-                <div style="margin-top: 20px; text-align: center; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-                    <button class="btn btn-success" onclick="syncSingleUser('${uid}')">
-                        <i class="fas fa-rotate"></i> Sync Now
-                    </button>
-                    <button class="btn btn-danger" onclick="restoreSingleUser('${uid}')">
-                        <i class="fas fa-rotate-left"></i> Restore from Backup
-                    </button>
-                </div>
-            `;
-        }
-
+        html += '</div></div>';
+        if (mismatch) html += `<div style="margin-top:20px;text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;"><button class="btn btn-success" onclick="syncSingleUser('${uid}')"><i class="fas fa-rotate"></i> Sync Now</button><button class="btn btn-danger" onclick="restoreSingleUser('${uid}')"><i class="fas fa-rotate-left"></i> Restore</button></div>`;
         container.innerHTML = html;
-        Logger.add('Compare Data', 'success', `UID: ${uid} - ${mismatchFound ? 'Mismatch found' : 'All matched'}`);
-
-    } catch(err) {
-        container.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-circle-exclamation"></i>
-                Error: ${err.message}
-            </div>
-        `;
-        Logger.add('Compare Data', 'failed', `UID: ${uid} - ${err.message}`);
+        Logger.add('Compare Data', 'success', 'UID: ' + uid + (mismatch ? ' - Mismatch' : ' - Matched'));
+    } catch(e) {
+        container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-circle-exclamation"></i> Error: ' + e.message + '</div>';
+        Logger.add('Compare Data', 'failed', 'UID: ' + uid + ' - ' + e.message);
     }
 }
 
-// ==================== SYNC USER ====================
-
+// ==================== SYNC ====================
 async function syncUser() {
     const uid = document.getElementById('syncInput').value.trim();
-    if (!uid) {
-        Utils.showNotification('Please enter a UID', 'warning');
-        return;
-    }
+    if (!uid) { Utils.showNotification('Enter a UID', 'warning'); return; }
     await syncSingleUser(uid);
 }
 
 async function syncSingleUser(uid) {
     const container = document.getElementById('syncResults');
-    container.innerHTML = `
-        <div class="empty-state">
-            <div class="spinner"></div>
-            <p>Syncing user data...</p>
-        </div>
-    `;
-
+    container.innerHTML = '<div class="empty-state"><div class="spinner"></div><p>Syncing user data...</p></div>';
     try {
-        let syncedPaths = [];
-
+        let paths = [];
         for (const path of USER_DATA_PATHS) {
-            const snap = await mainDB.ref(`${path}/${uid}`).once('value');
+            const snap = await mainDB.ref(path + '/' + uid).once('value');
             const data = snap.val();
-            if (data !== null && data !== undefined) {
-                await backupDB.ref(`${path}/${uid}`).set(data);
-                syncedPaths.push(path);
-            }
+            if (data !== null) { await backupDB.ref(path + '/' + uid).set(data); paths.push(path); }
         }
-
         BackupState.lastSyncTime = new Date().toISOString();
         BackupState.save();
-
-        container.innerHTML = `
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i>
-                <div>
-                    <strong>User synced successfully!</strong>
-                    <br>UID: <code>${uid}</code>
-                    <br><small>Synced paths: ${syncedPaths.join(', ') || 'None'}</small>
-                </div>
-            </div>
-        `;
-
-        Logger.add('Sync User', 'success', `UID: ${uid} - ${syncedPaths.length} paths`);
-        Utils.showNotification('User synced successfully!');
+        container.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i><div><strong>User synced!</strong><br>UID: <code>${uid}</code><br><small>Synced: ${paths.join(', ') || 'None'}</small></div></div>`;
+        Logger.add('Sync User', 'success', 'UID: ' + uid + ' - ' + paths.length + ' paths');
+        Utils.showNotification('User synced!');
         loadDashboard();
-
-    } catch(err) {
-        container.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-circle-exclamation"></i>
-                Error: ${err.message}
-            </div>
-        `;
-        Logger.add('Sync User', 'failed', `UID: ${uid} - ${err.message}`);
-        Utils.showNotification('Sync failed: ' + err.message, 'error');
+    } catch(e) {
+        container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-circle-exclamation"></i> Error: ' + e.message + '</div>';
+        Logger.add('Sync User', 'failed', 'UID: ' + uid + ' - ' + e.message);
     }
 }
 
-// ==================== RESTORE USER ====================
-
+// ==================== RESTORE ====================
 async function restoreUser() {
     const uid = document.getElementById('restoreInput').value.trim();
-    if (!uid) {
-        Utils.showNotification('Please enter a UID', 'warning');
-        return;
-    }
+    if (!uid) { Utils.showNotification('Enter a UID', 'warning'); return; }
     await restoreSingleUser(uid);
 }
 
 async function restoreSingleUser(uid) {
     const container = document.getElementById('restoreResults');
-    container.innerHTML = `
-        <div class="empty-state">
-            <div class="spinner"></div>
-            <p>Restoring user data via Cloud Function...</p>
-        </div>
-    `;
-
+    container.innerHTML = '<div class="empty-state"><div class="spinner"></div><p>Restoring user...</p></div>';
     try {
         const result = await cloud.restoreUser(uid);
-        
-        const restoredPaths = result.results?.filter(r => r.restored).map(r => r.path) || [];
-        
+        const paths = result.results?.filter(r => r.restored).map(r => r.path) || [];
         BackupState.deletedUsers = BackupState.deletedUsers.filter(u => u.uid !== uid);
         BackupState.save();
-
-        container.innerHTML = `
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i>
-                <div>
-                    <strong>User restored successfully!</strong>
-                    <br>UID: <code>${uid}</code>
-                    <br><small>Restored paths: ${restoredPaths.join(', ') || 'None'}</small>
-                </div>
-            </div>
-        `;
-
-        Logger.add('Restore User', 'success', `UID: ${uid}`);
-        Utils.showNotification('User restored successfully!');
+        container.innerHTML = `<div class="alert alert-success"><i class="fas fa-check-circle"></i><div><strong>User restored!</strong><br>UID: <code>${uid}</code><br><small>Restored: ${paths.join(', ') || 'None'}</small></div></div>`;
+        Logger.add('Restore User', 'success', 'UID: ' + uid);
+        Utils.showNotification('User restored!');
         loadDashboard();
-
-    } catch(err) {
-        container.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-circle-exclamation"></i>
-                Error: ${err.message}
-            </div>
-        `;
-        Logger.add('Restore User', 'failed', `UID: ${uid} - ${err.message}`);
-        Utils.showNotification('Restore failed: ' + err.message, 'error');
+    } catch(e) {
+        container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-circle-exclamation"></i> Error: ' + e.message + '</div>';
+        Logger.add('Restore User', 'failed', 'UID: ' + uid + ' - ' + e.message);
     }
 }
 
-// ==================== RESTORE ALL USERS ====================
-
+// ==================== RESTORE ALL ====================
 async function restoreAllUsers() {
-    // Check Super Admin permission
-    if (!Utils.isSuperAdmin()) {
-        Utils.showNotification('Super Admin permission required!', 'error');
-        return;
-    }
-
-    // Check live domain protection
-    if (Utils.isLiveDomain()) {
-        Utils.showNotification('🔒 Restore All is disabled on live domain for safety.', 'warning', 6000);
-        return;
-    }
-
-    // Triple confirmation for safety
-    if (!confirm('⚠️ WARNING: This will overwrite ALL data in Main Firebase with data from Backup Firebase. Are you absolutely sure?')) return;
-    if (!confirm('🔴 SECOND CONFIRMATION: Type "RESTORE ALL" to proceed.')) return;
-    if (!confirm('🔴 FINAL CONFIRMATION: Type "RESTORE ALL" again to confirm.')) return;
+    if (!Utils.isSuperAdmin()) { Utils.showNotification('Super Admin required!', 'error'); return; }
+    if (Utils.isLiveDomain()) { Utils.showNotification('🔒 Disabled on live domain', 'warning', 6000); return; }
+    if (!confirm('⚠️ WARNING: This will overwrite ALL data. Are you sure?')) return;
+    if (!confirm('🔴 Type "RESTORE ALL" to confirm.')) return;
+    if (!confirm('🔴 FINAL: Type "RESTORE ALL" again.')) return;
 
     const btn = document.getElementById('restoreAllBtn');
-    const progressDiv = document.getElementById('restoreAllProgress');
-    const progressBar = document.getElementById('restoreAllProgressBar');
-    const progressText = document.getElementById('restoreAllProgressText');
+    const prog = document.getElementById('restoreAllProgress');
+    const bar = document.getElementById('restoreAllProgressBar');
+    const text = document.getElementById('restoreAllProgressText');
 
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner"></div> Restoring...';
-    progressDiv.style.display = 'block';
+    prog.style.display = 'block';
 
     try {
         const result = await cloud.restoreAllUsers();
-
-        progressBar.style.width = '100%';
-        progressText.innerHTML = `
-            <span class="highlight">${result.restored}</span> users restored, 
-            <span style="color: var(--danger);">${result.failed}</span> failed
-        `;
-
-        if (result.failed > 0) {
-            Utils.showNotification(`${result.restored} restored, ${result.failed} failed`, 'warning');
-        } else {
-            Utils.showNotification(`All ${result.restored} users restored!`);
-        }
-
-        Logger.add('Restore All Users', 'success', `${result.restored} restored, ${result.failed} failed`);
-
-        btn.innerHTML = '<i class="fas fa-check"></i> Restore Complete';
-
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-rotate-left"></i> Restore All Users';
-            progressDiv.style.display = 'none';
-            progressBar.style.width = '0%';
-        }, 3000);
-
+        bar.style.width = '100%';
+        text.innerHTML = '<span class="highlight">' + result.restored + '</span> users restored, <span style="color:var(--danger);">' + result.failed + '</span> failed';
+        Utils.showNotification(result.failed > 0 ? result.restored + ' restored, ' + result.failed + ' failed' : 'All ' + result.restored + ' users restored!', result.failed > 0 ? 'warning' : 'success');
+        Logger.add('Restore All Users', 'success', result.restored + ' restored, ' + result.failed + ' failed');
+        btn.innerHTML = '<i class="fas fa-check"></i> Complete';
+        setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-rotate-left"></i> Restore All Users'; prog.style.display = 'none'; bar.style.width = '0%'; }, 3000);
         loadDashboard();
-
-    } catch(err) {
-        Utils.showNotification('Restore failed: ' + err.message, 'error');
-        Logger.add('Restore All Users', 'failed', err.message);
+    } catch(e) {
+        Utils.showNotification('Restore failed: ' + e.message, 'error');
+        Logger.add('Restore All Users', 'failed', e.message);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-rotate-left"></i> Restore All Users';
-        progressDiv.style.display = 'none';
+        prog.style.display = 'none';
     }
 }
 
-// ==================== BACKUP HISTORY ====================
-
-async function loadBackupHistory() {
-    const container = document.getElementById('backupHistoryList');
-    if (!container) return;
-
-    container.innerHTML = `
-        <div class="empty-state">
-            <div class="spinner"></div>
-            <p>Loading backup history...</p>
-        </div>
-    `;
-
-    try {
-        const result = await cloud.getBackupHistory();
-        const history = result.history || [];
-
-        if (history.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-history"></i>
-                    <h3>No Backup History</h3>
-                    <p>Backups will appear here when scheduled</p>
-                </div>
-            `;
-            return;
-        }
-
-        let html = `
-            <div style="margin-bottom:12px; color: var(--text-muted); font-size:0.9rem;">
-                Total <strong style="color:var(--text);">${history.length}</strong> backups found
-            </div>
-            <div class="table-responsive">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Date/Time</th>
-                            <th>Type</th>
-                            <th>Users</th>
-                            <th>Status</th>
-                            <th>Size</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        history.forEach(item => {
-            const statusClass = item.status === 'success' ? 'tag-success' : 'tag-danger';
-            html += `
-                <tr>
-                    <td>${Utils.formatDate(item.timestamp)}</td>
-                    <td><span class="tag tag-info">${item.type || 'Manual'}</span></td>
-                    <td>${item.totalUsers || 0}</td>
-                    <td><span class="tag ${statusClass}">${item.status || 'OK'}</span></td>
-                    <td>${item.size || 'N/A'}</td>
-                </tr>
-            `;
-        });
-
-        html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
-        container.innerHTML = html;
-
-        // Update local state
-        BackupState.backupHistory = history;
-        BackupState.save();
-
-    } catch(err) {
-        container.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-circle-exclamation"></i>
-                Error loading backup history: ${err.message}
-            </div>
-        `;
-    }
-}
-
-// ==================== DELETED USER DETECTION ====================
-
+// ==================== DELETED USERS ====================
 async function detectDeletedUsers() {
     try {
-        const mainSnap = await mainDB.ref('users').once('value');
-        const backupSnap = await backupDB.ref('users').once('value');
-
-        const mainUsers = mainSnap.val() || {};
-        const backupUsers = backupSnap.val() || {};
-
-        const mainIds = Object.keys(mainUsers);
-        const backupIds = Object.keys(backupUsers);
-
-        const newlyDeleted = backupIds.filter(id => !mainIds.includes(id));
-
+        const ms = await mainDB.ref('users').once('value');
+        const bs = await backupDB.ref('users').once('value');
+        const main = ms.val() || {}, backup = bs.val() || {};
+        const mainIds = Object.keys(main), backupIds = Object.keys(backup);
+        const newDeleted = backupIds.filter(id => !mainIds.includes(id));
         let added = 0;
-        newlyDeleted.forEach(uid => {
-            const user = backupUsers[uid];
-            const exists = BackupState.deletedUsers.find(u => u.uid === uid);
-            if (!exists) {
-                BackupState.deletedUsers.unshift({
-                    uid,
-                    name: user?.name || user?.displayName || 'Unknown',
-                    email: user?.email || 'N/A',
-                    phone: user?.phone || 'N/A',
-                    deletedAt: new Date().toISOString(),
-                    detectedAt: new Date().toISOString()
-                });
+        newDeleted.forEach(uid => {
+            const user = backup[uid];
+            if (!BackupState.deletedUsers.find(u => u.uid === uid)) {
+                BackupState.deletedUsers.unshift({ uid, name: user?.name || 'Unknown', email: user?.email || 'N/A', deletedAt: new Date().toISOString() });
                 added++;
             }
         });
-
-        if (added > 0) {
-            BackupState.save();
-            Logger.add('Deleted Users Detected', 'warning', `${added} new deleted users`);
-            
-            if (BackupState.deleteAlertsEnabled) {
-                const latest = BackupState.deletedUsers[0];
-                Utils.showNotification(
-                    `⚠️ User ${latest.name} (${latest.uid}) deleted from Main Firebase!`,
-                    'warning',
-                    8000
-                );
-            }
-        }
-
+        if (added > 0) { BackupState.save(); Logger.add('Deleted Users', 'warning', added + ' new'); }
         document.getElementById('deletedUsersCount').textContent = BackupState.deletedUsers.length;
         document.getElementById('deletedBadge').textContent = BackupState.deletedUsers.length;
-
         const alertContainer = document.getElementById('deletedAlertContainer');
         if (BackupState.deletedUsers.length > 0 && alertContainer) {
             const latest = BackupState.deletedUsers[0];
-            alertContainer.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-triangle-exclamation"></i>
-                    <div style="flex:1;">
-                        <strong>${BackupState.deletedUsers.length} User(s) Deleted!</strong>
-                        <br>Latest: ${latest.name} (${Utils.truncate(latest.uid, 10)})
-                        <br>
-                        <button class="btn btn-success btn-sm" style="margin-top:8px;" onclick="restoreSingleUser('${latest.uid}')">
-                            <i class="fas fa-rotate-left"></i> Recover Now
-                        </button>
-                        <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="document.getElementById('deletedAlertContainer').innerHTML=''">
-                            <i class="fas fa-times"></i> Dismiss
-                        </button>
-                    </div>
-                </div>
-            `;
-        } else if (alertContainer) {
-            alertContainer.innerHTML = '';
-        }
-
-    } catch(err) {
-        console.error('Deleted user detection error:', err);
-    }
+            alertContainer.innerHTML = `<div class="alert alert-danger"><i class="fas fa-triangle-exclamation"></i><div style="flex:1;"><strong>${BackupState.deletedUsers.length} User(s) Deleted!</strong><br>Latest: ${latest.name} (${latest.uid.slice(0,10)})<br><button class="btn btn-success btn-sm" style="margin-top:8px;" onclick="restoreSingleUser('${latest.uid}')"><i class="fas fa-rotate-left"></i> Recover</button><button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="document.getElementById('deletedAlertContainer').innerHTML=''"><i class="fas fa-times"></i> Dismiss</button></div></div>`;
+        } else if (alertContainer) { alertContainer.innerHTML = ''; }
+    } catch(e) { console.error('Deleted detection error:', e); }
 }
 
-function refreshDeletedUsers() {
-    detectDeletedUsers();
-    renderDeletedUsers();
-    Utils.showNotification('Deleted users list refreshed', 'info');
-}
+function refreshDeletedUsers() { detectDeletedUsers(); renderDeletedUsers(); Utils.showNotification('Refreshed', 'info'); }
 
 function renderDeletedUsers() {
     const container = document.getElementById('deletedUsersList');
     if (!container) return;
-
     if (BackupState.deletedUsers.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-check-circle"></i>
-                <h3>No Deleted Users</h3>
-                <p>All users are present in both databases</p>
-            </div>
-        `;
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-check-circle"></i><h3>No Deleted Users</h3><p>All users are present in both databases</p></div>';
         return;
     }
-
-    let html = `
-        <div style="margin-bottom:12px; color: var(--text-muted); font-size:0.9rem;">
-            <strong style="color:var(--danger);">${BackupState.deletedUsers.length}</strong> deleted users found
-        </div>
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>UID</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Deleted At</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
-
+    let html = `<div style="margin-bottom:12px;color:var(--text-muted);font-size:0.9rem;"><strong style="color:var(--danger);">${BackupState.deletedUsers.length}</strong> deleted users</div><div class="table-responsive"><table class="data-table"><thead><tr><th>UID</th><th>Name</th><th>Email</th><th>Deleted At</th><th>Actions</th></tr></thead><tbody>`;
     BackupState.deletedUsers.forEach(user => {
-        html += `
-            <tr>
-                <td class="uid-cell">${Utils.truncate(user.uid, 12)}</td>
-                <td>${user.name || 'Unknown'}</td>
-                <td>${user.email || 'N/A'}</td>
-                <td>${Utils.formatDate(user.deletedAt)}</td>
-                <td class="actions">
-                    <button class="btn btn-success btn-sm" onclick="restoreSingleUser('${user.uid}')">
-                        <i class="fas fa-rotate-left"></i> Restore
-                    </button>
-                    <button class="btn btn-outline btn-sm" onclick="compareSingleUser('${user.uid}')">
-                        <i class="fas fa-code-compare"></i>
-                    </button>
-                    <button class="btn btn-danger btn-sm" onclick="removeDeletedUser('${user.uid}')">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </td>
-            </tr>
-        `;
+        html += `<tr><td>${user.uid.slice(0,12)}</td><td>${user.name}</td><td>${user.email}</td><td>${Utils.formatDate(user.deletedAt)}</td><td class="actions"><button class="btn btn-success btn-sm" onclick="restoreSingleUser('${user.uid}')"><i class="fas fa-rotate-left"></i> Restore</button><button class="btn btn-outline btn-sm" onclick="compareSingleUser('${user.uid}')"><i class="fas fa-code-compare"></i></button><button class="btn btn-danger btn-sm" onclick="removeDeletedUser('${user.uid}')"><i class="fas fa-times"></i></button></td></tr>`;
     });
-
-    html += `
-                </tbody>
-            </table>
-        </div>
-    `;
+    html += '</tbody></table></div>';
     container.innerHTML = html;
 }
 
 function removeDeletedUser(uid) {
-    if (!confirm(`Remove ${uid} from deleted users list?`)) return;
+    if (!confirm('Remove ' + uid + ' from deleted list?')) return;
     BackupState.deletedUsers = BackupState.deletedUsers.filter(u => u.uid !== uid);
     BackupState.save();
     renderDeletedUsers();
     document.getElementById('deletedUsersCount').textContent = BackupState.deletedUsers.length;
     document.getElementById('deletedBadge').textContent = BackupState.deletedUsers.length;
-    Utils.showNotification('User removed from deleted list', 'info');
 }
 
-// ==================== HEALTH CHECK ====================
+// ==================== STATUS ====================
+async function checkBackupStatus() {
+    try {
+        await mainDB.ref('.info/connected').once('value');
+        document.getElementById('mainDbStatus').innerHTML = '<span class="tag tag-success"><i class="fas fa-check"></i> Online</span>';
+    } catch(e) { document.getElementById('mainDbStatus').innerHTML = '<span class="tag tag-danger"><i class="fas fa-xmark"></i> Offline</span>'; }
+    try {
+        await backupDB.ref('.info/connected').once('value');
+        document.getElementById('backupDbStatus').innerHTML = '<span class="tag tag-success"><i class="fas fa-check"></i> Online</span>';
+    } catch(e) { document.getElementById('backupDbStatus').innerHTML = '<span class="tag tag-danger"><i class="fas fa-xmark"></i> Offline</span>'; }
+    const mainOnline = document.getElementById('mainDbStatus').innerHTML.includes('Online');
+    const backupOnline = document.getElementById('backupDbStatus').innerHTML.includes('Online');
+    document.getElementById('syncStatus').innerHTML = mainOnline && backupOnline ? '<span class="tag tag-success"><i class="fas fa-check"></i> Active</span>' : '<span class="tag tag-danger"><i class="fas fa-xmark"></i> Inactive</span>';
+    let total = 0;
+    for (const path of SYNC_PATHS) {
+        try { const snap = await backupDB.ref(path).once('value'); total += Object.keys(snap.val() || {}).length; } catch(e) {}
+    }
+    document.getElementById('totalRecords').textContent = total;
+}
 
+// ==================== HEALTH ====================
 async function runHealthCheck() {
     const container = document.getElementById('healthResults');
     if (!container) return;
-
-    container.innerHTML = `
-        <div class="empty-state">
-            <div class="spinner"></div>
-            <p>Running health check...</p>
-        </div>
-    `;
-
+    container.innerHTML = '<div class="empty-state"><div class="spinner"></div><p>Running health check...</p></div>';
     try {
         const result = await cloud.runHealthCheck();
-        
-        let html = `
-            <div style="margin-bottom: 16px;">
-                <div class="alert ${result.status === 'healthy' ? 'alert-success' : 'alert-danger'}">
-                    <i class="fas fa-${result.status === 'healthy' ? 'check-circle' : 'triangle-exclamation'}"></i>
-                    <div>
-                        <strong>Health Status: ${result.status === 'healthy' ? '✅ All Good' : '⚠️ Issues Found'}</strong>
-                        <br><span style="font-size:0.85rem;">Checked at: ${Utils.formatDate(result.timestamp)}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        if (result.checks) {
-            html += `<div style="display: grid; gap: 12px;">`;
-            
-            // Users comparison
-            if (result.checks.users) {
-                const u = result.checks.users;
-                const isMatch = u.main === u.backup;
-                html += `
-                    <div style="padding: 12px; background: var(--darker); border-radius: 8px; border-left: 3px solid ${isMatch ? 'var(--secondary)' : 'var(--danger)'};">
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                            <span><i class="fas fa-users"></i> Users</span>
-                            <span style="font-family: monospace;">
-                                Main: <strong>${u.main}</strong> | Backup: <strong>${u.backup}</strong>
-                                ${isMatch ? ' ✅' : ' ❌'}
-                            </span>
-                        </div>
-                        ${!isMatch ? `<div style="color: var(--danger); font-size:0.85rem; margin-top:4px;">⚠️ ${u.main - u.backup > 0 ? 'Missing in backup' : 'Extra in backup'}: ${Math.abs(u.main - u.backup)} users</div>` : ''}
-                    </div>
-                `;
-            }
-
-            // Path checks
-            if (result.checks.paths) {
-                result.checks.paths.forEach(p => {
-                    const isMatch = p.main === p.backup;
-                    html += `
-                        <div style="padding: 12px; background: var(--darker); border-radius: 8px; border-left: 3px solid ${isMatch ? 'var(--secondary)' : 'var(--danger)'};">
-                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-                                <span><i class="fas fa-database"></i> ${p.path}</span>
-                                <span style="font-family: monospace;">
-                                    Main: <strong>${p.main}</strong> | Backup: <strong>${p.backup}</strong>
-                                    ${isMatch ? ' ✅' : ' ❌'}
-                                </span>
-                            </div>
-                            ${!isMatch ? `<div style="color: var(--danger); font-size:0.85rem; margin-top:4px;">⚠️ Mismatch detected</div>` : ''}
-                        </div>
-                    `;
-                });
-            }
-
-            html += `</div>`;
-
-            // Alerts
-            if (result.alerts && result.alerts.length > 0) {
-                html += `
-                    <div style="margin-top: 16px; padding: 12px; background: rgba(239, 68, 68, 0.08); border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2);">
-                        <h4 style="color: var(--danger);"><i class="fas fa-bell"></i> Alerts</h4>
-                `;
-                result.alerts.forEach(alert => {
-                    html += `<div style="padding: 4px 0; font-size:0.9rem; color: #fca5a5;">⚠️ ${alert}</div>`;
-                });
-                html += `</div>`;
-            }
-
-            // Show alert in dashboard
-            const alertContainer = document.getElementById('healthAlertContainer');
-            if (alertContainer) {
-                if (result.status !== 'healthy') {
-                    alertContainer.innerHTML = `
-                        <div class="alert alert-warning">
-                            <i class="fas fa-stethoscope"></i>
-                            <div>
-                                <strong>Health Check Alert!</strong>
-                                <br>${result.alerts?.join(', ') || 'Issues detected. Please review health check report.'}
-                                <br>
-                                <button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="showSection('health')">
-                                    <i class="fas fa-eye"></i> View Report
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    alertContainer.innerHTML = '';
-                }
-            }
-
-            // Update badge
-            const badge = document.getElementById('healthBadge');
-            if (badge) {
-                badge.textContent = result.status === 'healthy' ? 'OK' : '⚠️';
-                badge.className = `badge ${result.status === 'healthy' ? 'success' : 'warning'}`;
-            }
-
-        } else {
-            html += `<div style="text-align:center; padding:24px; color: var(--text-muted);">No health check data available</div>`;
+        let html = `<div style="margin-bottom:16px;"><div class="alert ${result.status === 'healthy' ? 'alert-success' : 'alert-danger'}"><i class="fas fa-${result.status === 'healthy' ? 'check-circle' : 'triangle-exclamation'}"></i><div><strong>Health: ${result.status === 'healthy' ? '✅ All Good' : '⚠️ Issues Found'}</strong><br><span style="font-size:0.85rem;">Checked: ${Utils.formatDate(result.timestamp)}</span></div></div></div>`;
+        if (result.checks?.users) {
+            const u = result.checks.users;
+            const match = u.main === u.backup;
+            html += `<div style="padding:12px;background:var(--darker);border-radius:8px;margin-bottom:8px;border-left:3px solid ${match ? 'var(--secondary)' : 'var(--danger)'};"><div style="display:flex;justify-content:space-between;"><span><i class="fas fa-users"></i> Users</span><span>Main: <strong>${u.main}</strong> | Backup: <strong>${u.backup}</strong> ${match ? '✅' : '❌'}</span></div></div>`;
         }
-
+        if (result.checks?.paths) {
+            result.checks.paths.forEach(p => {
+                const match = p.main === p.backup;
+                html += `<div style="padding:12px;background:var(--darker);border-radius:8px;margin-bottom:8px;border-left:3px solid ${match ? 'var(--secondary)' : 'var(--danger)'};"><div style="display:flex;justify-content:space-between;"><span><i class="fas fa-database"></i> ${p.path}</span><span>Main: <strong>${p.main}</strong> | Backup: <strong>${p.backup}</strong> ${match ? '✅' : '❌'}</span></div></div>`;
+            });
+        }
+        if (result.alerts?.length > 0) {
+            html += `<div style="margin-top:16px;padding:12px;background:rgba(239,68,68,0.08);border-radius:8px;border:1px solid rgba(239,68,68,0.2);"><h4 style="color:var(--danger);"><i class="fas fa-bell"></i> Alerts</h4>`;
+            result.alerts.forEach(a => { html += `<div style="padding:4px 0;color:#fca5a5;">⚠️ ${a}</div>`; });
+            html += '</div>';
+        }
         container.innerHTML = html;
-
-    } catch(err) {
-        container.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-circle-exclamation"></i>
-                Health check failed: ${err.message}
-            </div>
-        `;
+        const badge = document.getElementById('healthBadge');
+        if (badge) { badge.textContent = result.status === 'healthy' ? 'OK' : '⚠️'; badge.className = 'badge ' + (result.status === 'healthy' ? 'success' : 'warning'); }
+        const alertContainer = document.getElementById('healthAlertContainer');
+        if (alertContainer) {
+            if (result.status !== 'healthy') {
+                alertContainer.innerHTML = `<div class="alert alert-warning"><i class="fas fa-stethoscope"></i><div><strong>Health Alert!</strong><br>${result.alerts?.join(', ') || 'Issues detected'}<br><button class="btn btn-primary btn-sm" style="margin-top:8px;" onclick="showSection('health')"><i class="fas fa-eye"></i> View</button></div></div>`;
+            } else { alertContainer.innerHTML = ''; }
+        }
+    } catch(e) {
+        container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-circle-exclamation"></i> Health check failed: ' + e.message + '</div>';
     }
 }
 
-// ==================== BACKUP STATUS ====================
-
-async function checkBackupStatus() {
-    try {
-        try {
-            await mainDB.ref('.info/connected').once('value');
-            document.getElementById('mainDbStatus').innerHTML = `
-                <span class="tag tag-success"><i class="fas fa-check"></i> Online</span>
-            `;
-        } catch(e) {
-            document.getElementById('mainDbStatus').innerHTML = `
-                <span class="tag tag-danger"><i class="fas fa-xmark"></i> Offline</span>
-            `;
-        }
-
-        try {
-            await backupDB.ref('.info/connected').once('value');
-            document.getElementById('backupDbStatus').innerHTML = `
-                <span class="tag tag-success"><i class="fas fa-check"></i> Online</span>
-            `;
-        } catch(e) {
-            document.getElementById('backupDbStatus').innerHTML = `
-                <span class="tag tag-danger"><i class="fas fa-xmark"></i> Offline</span>
-            `;
-        }
-
-        const mainOnline = document.getElementById('mainDbStatus').innerHTML.includes('Online');
-        const backupOnline = document.getElementById('backupDbStatus').innerHTML.includes('Online');
-        document.getElementById('syncStatus').innerHTML = mainOnline && backupOnline ?
-            `<span class="tag tag-success"><i class="fas fa-check"></i> Active</span>` :
-            `<span class="tag tag-danger"><i class="fas fa-xmark"></i> Inactive</span>`;
-
-        let totalRecords = 0;
-        for (const path of SYNC_PATHS) {
-            try {
-                const snap = await backupDB.ref(path).once('value');
-                const data = snap.val() || {};
-                totalRecords += Object.keys(data).length;
-            } catch(e) {}
-        }
-        document.getElementById('totalRecords').textContent = totalRecords;
-
-    } catch(err) {
-        console.error('Status check error:', err);
-    }
-}
-
-// ==================== DOWNLOAD BACKUP ====================
-
+// ==================== DOWNLOAD ====================
 async function downloadBackup() {
-    const btn = event?.target?.closest?.('button') || document.querySelector('#download .btn-primary');
+    const btn = document.querySelector('#download .btn-primary');
     if (!btn) return;
-    
     btn.disabled = true;
-    btn.innerHTML = '<div class="spinner"></div> Generating ZIP...';
-
+    btn.innerHTML = '<div class="spinner"></div> Generating...';
     try {
         const result = await cloud.downloadBackup();
-        
-        if (result.url) {
-            // Open in new tab for download
-            window.open(result.url, '_blank');
-            Utils.showNotification('Backup ZIP download started!');
-            Logger.add('Download Backup', 'success', `File: ${result.filename}`);
-            
-            // Add to backup history
-            BackupState.backupHistory.unshift({
-                timestamp: new Date().toISOString(),
-                type: 'Manual',
-                status: 'success',
-                totalUsers: result.totalUsers || 0,
-                size: result.size || 'N/A'
-            });
-            BackupState.save();
-        }
-    } catch(err) {
-        Utils.showNotification('Download failed: ' + err.message, 'error');
-        Logger.add('Download Backup', 'failed', err.message);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-download"></i> Download ZIP Backup';
-    }
-}
-
-async function downloadBackupHistory() {
-    try {
-        const result = await cloud.getBackupHistory();
-        const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `RND_Backup_History_${new Date().toISOString().slice(0,10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        Utils.showNotification('History downloaded', 'success');
-    } catch(err) {
-        Utils.showNotification('Download failed: ' + err.message, 'error');
-    }
+        if (result.url) { window.open(result.url, '_blank'); Utils.showNotification('Backup download started!'); Logger.add('Download Backup', 'success'); }
+    } catch(e) { Utils.showNotification('Download failed: ' + e.message, 'error'); Logger.add('Download Backup', 'failed', e.message); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-download"></i> Download Backup'; }
 }
 
 // ==================== FULL SYNC ====================
-
 async function triggerFullSync() {
-    const btn = event?.target?.closest?.('button');
+    const btn = document.querySelector('#dashboard .btn-success');
     if (!btn) return;
-
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner"></div> Syncing...';
-
     try {
         let synced = 0;
-        let total = SYNC_PATHS.length;
-
         for (const path of SYNC_PATHS) {
-            try {
-                const snap = await mainDB.ref(path).once('value');
-                const data = snap.val();
-                if (data !== null) {
-                    await backupDB.ref(path).set(data);
-                    synced++;
-                }
-            } catch(e) {
-                console.error(`Sync failed for ${path}:`, e);
-            }
+            try { const snap = await mainDB.ref(path).once('value'); const data = snap.val(); if (data) { await backupDB.ref(path).set(data); synced++; } } catch(e) { console.error('Sync failed for', path, e); }
         }
-
         BackupState.lastSyncTime = new Date().toISOString();
         BackupState.save();
-
-        Logger.add('Full Sync', 'success', `${synced}/${total} paths synced`);
-        Utils.showNotification(`Full sync completed! ${synced}/${total} paths synced`);
+        Logger.add('Full Sync', 'success', synced + '/' + SYNC_PATHS.length + ' paths');
+        Utils.showNotification('Full sync completed! ' + synced + '/' + SYNC_PATHS.length + ' paths');
         loadDashboard();
-
-    } catch(err) {
-        Logger.add('Full Sync', 'failed', err.message);
-        Utils.showNotification('Full sync failed: ' + err.message, 'error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-rotate"></i> Full Sync Now';
-    }
-}
-
-// ==================== MAINTENANCE MODE ====================
-
-async function toggleMaintenance() {
-    const toggle = document.getElementById('maintenanceToggle');
-    const enabled = toggle ? toggle.checked : !BackupState.maintenanceMode;
-    
-    BackupState.maintenanceMode = enabled;
-    BackupState.save();
-    
-    updateMaintenanceBanner();
-    
-    // Call cloud function to update maintenance status
-    try {
-        await cloud.toggleMaintenance(enabled);
-        Logger.add('Maintenance Mode', enabled ? 'warning' : 'success', `Set to ${enabled}`);
-        Utils.showNotification(`Maintenance mode ${enabled ? 'enabled' : 'disabled'}`, enabled ? 'warning' : 'success');
-    } catch(err) {
-        Utils.showNotification('Failed to update maintenance status: ' + err.message, 'error');
-    }
+    } catch(e) { Logger.add('Full Sync', 'failed', e.message); Utils.showNotification('Full sync failed: ' + e.message, 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-rotate"></i> Full Sync'; }
 }
 
 // ==================== SETTINGS ====================
-
 function toggleAutoSync() {
-    const toggle = document.getElementById('autoSyncToggle');
-    BackupState.autoSyncEnabled = toggle.checked;
-    BackupState.save();
-    Utils.showNotification(`Auto Sync ${toggle.checked ? 'enabled' : 'disabled'}`, 'info');
-    Logger.add('Auto Sync', toggle.checked ? 'success' : 'warning', `Set to ${toggle.checked}`);
+    const t = document.getElementById('autoSyncToggle');
+    Utils.showNotification('Auto Sync ' + (t.checked ? 'enabled' : 'disabled'), 'info');
+    Logger.add('Auto Sync', t.checked ? 'success' : 'warning', 'Set to ' + t.checked);
 }
 
 function toggleDeleteAlerts() {
-    const toggle = document.getElementById('deleteAlertsToggle');
-    BackupState.deleteAlertsEnabled = toggle.checked;
-    BackupState.save();
-    Utils.showNotification(`Delete Alerts ${toggle.checked ? 'enabled' : 'disabled'}`, 'info');
+    const t = document.getElementById('deleteAlertsToggle');
+    Utils.showNotification('Delete Alerts ' + (t.checked ? 'enabled' : 'disabled'), 'info');
 }
 
-function addAdmin() {
-    const email = document.getElementById('newAdminEmail').value.trim();
-    if (!email) {
-        Utils.showNotification('Please enter an email', 'warning');
-        return;
-    }
-    // This would call a cloud function to add admin
-    Utils.showNotification('Admin management via Firebase Console', 'info');
-}
-
-// ==================== ADMIN LOGOUT ====================
-
+// ==================== LOGOUT ====================
 function adminLogout() {
-    if (!confirm('Are you sure you want to logout?')) return;
+    if (!confirm('Logout?')) return;
     localStorage.removeItem('adminSession');
+    sessionStorage.removeItem('adminSession');
     auth.signOut();
     window.location.href = 'admin-login.html';
 }
 
-// ==================== AUTO DELETE DETECTION ====================
-
-function setupDeletedUserListener() {
-    mainDB.ref('users').on('child_removed', async (snapshot) => {
-        const uid = snapshot.key;
-        const user = snapshot.val();
-
+// ==================== AUTO DELETE LISTENER ====================
+function setupDeletedListener() {
+    mainDB.ref('users').on('child_removed', async (snap) => {
+        const uid = snap.key;
+        const user = snap.val();
         if (!uid) return;
-
         try {
-            const backupSnap = await backupDB.ref(`users/${uid}`).once('value');
-            const backupUser = backupSnap.val();
-
-            if (backupUser) {
-                const deletedUser = {
-                    uid,
-                    name: user?.name || backupUser?.name || 'Unknown',
-                    email: user?.email || backupUser?.email || 'N/A',
-                    phone: user?.phone || backupUser?.phone || 'N/A',
-                    deletedAt: new Date().toISOString(),
-                    detectedAt: new Date().toISOString()
-                };
-
-                const exists = BackupState.deletedUsers.find(u => u.uid === uid);
-                if (!exists) {
-                    BackupState.deletedUsers.unshift(deletedUser);
+            const bs = await backupDB.ref('users/' + uid).once('value');
+            if (bs.val()) {
+                const du = { uid, name: user?.name || bs.val()?.name || 'Unknown', email: user?.email || bs.val()?.email || 'N/A', deletedAt: new Date().toISOString() };
+                if (!BackupState.deletedUsers.find(u => u.uid === uid)) {
+                    BackupState.deletedUsers.unshift(du);
                     BackupState.save();
-                    
-                    Logger.add('User Deleted (Real-time)', 'warning', `UID: ${uid} - ${deletedUser.name}`);
-                    
-                    if (BackupState.deleteAlertsEnabled) {
-                        Utils.showNotification(
-                            `⚠️ User ${deletedUser.name} deleted! Click to recover.`,
-                            'warning',
-                            10000
-                        );
-                    }
-                    
+                    Logger.add('User Deleted (Real-time)', 'warning', 'UID: ' + uid);
+                    Utils.showNotification('⚠️ User ' + du.name + ' deleted!', 'warning', 8000);
                     loadDashboard();
                     renderDeletedUsers();
                 }
             }
-        } catch(err) {
-            console.error('Error processing deleted user:', err);
-        }
+        } catch(e) { console.error('Deleted listener error:', e); }
     });
 }
 
-// ==================== INITIALIZATION ====================
+// ==================== SESSION CHECK ====================
+function checkSession() {
+    let session = localStorage.getItem('adminSession');
+    if (!session) session = sessionStorage.getItem('adminSession');
+    if (!session) { window.location.href = 'admin-login.html'; return false; }
+    try {
+        const admin = JSON.parse(session);
+        if (admin.expiresAt && new Date(admin.expiresAt) < new Date()) {
+            localStorage.removeItem('adminSession');
+            sessionStorage.removeItem('adminSession');
+            window.location.href = 'admin-login.html';
+            return false;
+        }
+        window.currentAdmin = admin;
+        return true;
+    } catch(e) { window.location.href = 'admin-login.html'; return false; }
+}
 
+// ==================== INIT ====================
 function init() {
+    if (!checkSession()) return;
     initializeFirebase();
     BackupState.load();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
     loadDashboard();
-    setupDeletedUserListener();
+    setupDeletedListener();
+    renderLogs();
+    renderDeletedUsers();
+    checkBackupStatus();
     updateRestoreAllButton();
-    updateMaintenanceBanner();
-    
-    // Periodic checks
-    setInterval(() => {
-        detectDeletedUsers();
-        checkConnections();
-    }, 60000);
-
+    document.getElementById('autoSyncToggle').checked = true;
+    document.getElementById('deleteAlertsToggle').checked = true;
+    Logger.add('System Started', 'success', 'v3.0');
     // Enter key support
-    document.getElementById('searchInput')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') searchUser();
-    });
-    document.getElementById('compareInput')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') compareUserData();
-    });
-    document.getElementById('syncInput')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') syncUser();
-    });
-    document.getElementById('restoreInput')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') restoreUser();
-    });
-
-    // Initialize toggle states
-    const autoSyncToggle = document.getElementById('autoSyncToggle');
-    if (autoSyncToggle) autoSyncToggle.checked = BackupState.autoSyncEnabled;
-
-    const deleteAlertsToggle = document.getElementById('deleteAlertsToggle');
-    if (deleteAlertsToggle) deleteAlertsToggle.checked = BackupState.deleteAlertsEnabled;
-
-    const maintenanceToggle = document.getElementById('maintenanceToggle');
-    if (maintenanceToggle) maintenanceToggle.checked = BackupState.maintenanceMode;
-
-    Logger.add('System Initialized', 'success', 'Backup v3.0 started');
-    console.log('[RND Backup v3.0] System ready');
+    document.getElementById('searchInput')?.addEventListener('keypress', e => { if (e.key === 'Enter') searchUser(); });
+    document.getElementById('compareInput')?.addEventListener('keypress', e => { if (e.key === 'Enter') compareUserData(); });
+    document.getElementById('syncInput')?.addEventListener('keypress', e => { if (e.key === 'Enter') syncUser(); });
+    document.getElementById('restoreInput')?.addEventListener('keypress', e => { if (e.key === 'Enter') restoreUser(); });
+    // Click outside modal
+    document.getElementById('modal')?.addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 }
 
-// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
 }
 
-// ==================== EXPOSE GLOBALS ====================
-window.RNDBackup = {
-    Utils,
-    Logger,
-    BackupState,
-    CloudFunctionClient: cloud,
-    searchUser,
-    compareSingleUser,
-    syncSingleUser,
-    restoreSingleUser,
-    restoreAllUsers,
-    downloadBackup,
-    downloadBackupHistory,
-    triggerFullSync,
-    checkBackupStatus,
-    runHealthCheck,
-    loadBackupHistory,
-    renderLogs,
-    renderDeletedUsers,
-    showSection,
-    toggleSidebar,
-    openModal,
-    closeModal,
-    adminLogout,
-    toggleAutoSync,
-    toggleDeleteAlerts,
-    toggleMaintenance,
-    addAdmin,
-    refreshDeletedUsers,
-    refreshLogs,
-    clearLogs,
-    exportLogs
-};
+// ==================== EXPOSE ====================
+window.Utils = Utils;
+window.Logger = Logger;
+window.BackupState = BackupState;
+window.searchUser = searchUser;
+window.compareSingleUser = compareSingleUser;
+window.syncSingleUser = syncSingleUser;
+window.restoreSingleUser = restoreSingleUser;
+window.restoreAllUsers = restoreAllUsers;
+window.downloadBackup = downloadBackup;
+window.triggerFullSync = triggerFullSync;
+window.checkBackupStatus = checkBackupStatus;
+window.runHealthCheck = runHealthCheck;
+window.renderLogs = renderLogs;
+window.renderDeletedUsers = renderDeletedUsers;
+window.showSection = showSection;
+window.toggleSidebar = toggleSidebar;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.adminLogout = adminLogout;
+window.toggleAutoSync = toggleAutoSync;
+window.toggleDeleteAlerts = toggleDeleteAlerts;
+window.refreshDeletedUsers = refreshDeletedUsers;
+window.refreshLogs = refreshLogs;
+window.clearLogs = clearLogs;
+window.exportLogs = exportLogs;
+window.compareUserData = compareUserData;
+window.syncUser = syncUser;
+window.restoreUser = restoreUser;
+window.loadDashboard = loadDashboard;
