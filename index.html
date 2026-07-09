@@ -3,119 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RND Staking Platform - Admin Backup Manager v3.0</title>
+    <title>RND Backup - Admin Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        /* ==================== ROOT VARIABLES ==================== */
         :root {
             --primary: #6366f1;
             --primary-dark: #4f46e5;
-            --primary-light: #818cf8;
             --secondary: #10b981;
-            --secondary-dark: #059669;
             --danger: #ef4444;
-            --danger-dark: #dc2626;
             --warning: #f59e0b;
-            --warning-dark: #d97706;
             --info: #3b82f6;
-            --info-dark: #2563eb;
             --dark: #1e293b;
             --darker: #0f172a;
-            --light: #f1f5f9;
             --card-bg: #1e293b;
-            --card-hover: #2d3a4f;
             --border: #334155;
             --text: #e2e8f0;
             --text-muted: #94a3b8;
-            --text-light: #f8fafc;
-            --shadow: 0 8px 32px rgba(0,0,0,0.4);
             --radius: 16px;
+            --shadow: 0 8px 32px rgba(0,0,0,0.4);
             --transition: all 0.3s ease;
         }
 
-        * { 
-            margin: 0; 
-            padding: 0; 
-            box-sizing: border-box; 
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: var(--darker);
             color: var(--text);
             min-height: 100vh;
-            overflow-x: hidden;
         }
 
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: var(--darker); }
-        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--primary-dark); }
-
-        /* ==================== MAINTENANCE BANNER ==================== */
-        .maintenance-banner {
-            display: none;
-            background: linear-gradient(135deg, var(--warning), var(--warning-dark));
-            color: white;
-            padding: 12px 24px;
-            text-align: center;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 500;
-            animation: slideDown 0.5s ease;
-        }
-
-        .maintenance-banner.active {
-            display: block;
-        }
-
-        .maintenance-banner i {
-            margin-right: 12px;
-        }
-
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-100%); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ==================== SIDEBAR ==================== */
+        /* ========== SIDEBAR ========== */
         .sidebar {
             position: fixed;
             left: 0;
             top: 0;
-            width: 270px;
+            width: 260px;
             height: 100vh;
             background: var(--dark);
             border-right: 1px solid var(--border);
             z-index: 1000;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.3s ease;
             overflow-y: auto;
-            overflow-x: hidden;
         }
 
         .sidebar-header {
-            padding: 24px 20px;
+            padding: 20px;
             border-bottom: 1px solid var(--border);
             text-align: center;
             background: linear-gradient(135deg, var(--primary-dark), var(--primary));
         }
 
-        .sidebar-header h2 {
-            color: white;
-            font-size: 1.3rem;
-            margin-bottom: 4px;
-        }
-        .sidebar-header h2 i { margin-right: 8px; }
-        .sidebar-header p { color: rgba(255,255,255,0.7); font-size: 0.75rem; }
+        .sidebar-header h2 { color: white; font-size: 1.2rem; }
+        .sidebar-header p { color: rgba(255,255,255,0.7); font-size: 0.7rem; }
         .sidebar-header .version {
-            display: inline-block;
             background: rgba(255,255,255,0.15);
             padding: 2px 12px;
             border-radius: 20px;
             font-size: 0.6rem;
             color: white;
-            margin-top: 6px;
+            display: inline-block;
+            margin-top: 4px;
         }
 
         .admin-profile {
@@ -172,7 +120,7 @@
         .nav-item {
             display: flex;
             align-items: center;
-            padding: 11px 16px;
+            padding: 10px 16px;
             margin-bottom: 2px;
             border-radius: 10px;
             cursor: pointer;
@@ -200,14 +148,13 @@
         .nav-item .badge.success { background: var(--secondary); }
         .nav-item .badge.warning { background: var(--warning); }
 
-        /* ==================== MAIN CONTENT ==================== */
+        /* ========== MAIN ========== */
         .main-content {
-            margin-left: 270px;
+            margin-left: 260px;
             padding: 24px 32px;
             min-height: 100vh;
         }
 
-        /* ==================== TOP BAR ==================== */
         .top-bar {
             display: flex;
             justify-content: space-between;
@@ -217,7 +164,6 @@
             gap: 12px;
         }
 
-        .top-bar .left { display: flex; align-items: center; gap: 16px; }
         .top-bar .left h1 { font-size: 1.5rem; font-weight: 700; }
         .top-bar .left h1 i { color: var(--primary); margin-right: 10px; }
 
@@ -243,20 +189,20 @@
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            animation: pulse-dot 2s infinite;
+            animation: pulse 2s infinite;
         }
         .status-dot.online { background: var(--secondary); box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
         .status-dot.offline { background: var(--danger); box-shadow: 0 0 12px rgba(239, 68, 68, 0.4); animation: none; }
 
-        @keyframes pulse-dot {
+        @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
 
-        /* ==================== STAT CARDS ==================== */
+        /* ========== CARDS ========== */
         .card-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 16px;
             margin-bottom: 28px;
         }
@@ -270,26 +216,14 @@
             overflow: hidden;
             transition: var(--transition);
         }
-        .stat-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--primary);
-            box-shadow: var(--shadow);
-        }
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-        }
+        .stat-card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: var(--shadow); }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; }
         .stat-card.primary::before { background: var(--primary); }
         .stat-card.success::before { background: var(--secondary); }
         .stat-card.danger::before { background: var(--danger); }
         .stat-card.warning::before { background: var(--warning); }
         .stat-card.info::before { background: var(--info); }
 
-        .stat-card .top { display: flex; justify-content: space-between; align-items: flex-start; }
         .stat-card .icon {
             width: 44px;
             height: 44px;
@@ -305,19 +239,17 @@
         .stat-card.warning .icon { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
         .stat-card.info .icon { background: rgba(59, 130, 246, 0.15); color: var(--info); }
 
-        .stat-card .value { font-size: 1.8rem; font-weight: 700; margin-top: 12px; line-height: 1.2; }
-        .stat-card .label { color: var(--text-muted); font-size: 0.8rem; margin-top: 4px; }
+        .stat-card .value { font-size: 1.8rem; font-weight: 700; margin-top: 8px; }
+        .stat-card .label { color: var(--text-muted); font-size: 0.8rem; }
 
-        /* ==================== SECTION ==================== */
+        /* ========== SECTION ========== */
         .section {
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 24px;
             margin-bottom: 24px;
-            transition: var(--transition);
         }
-        .section:hover { border-color: rgba(99, 102, 241, 0.2); }
 
         .section-header {
             display: flex;
@@ -327,10 +259,10 @@
             flex-wrap: wrap;
             gap: 12px;
         }
-        .section-header h2 { font-size: 1.1rem; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        .section-header h2 { font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
         .section-header h2 i { color: var(--primary); }
 
-        /* ==================== BUTTONS ==================== */
+        /* ========== BUTTONS ========== */
         .btn {
             padding: 10px 22px;
             border: none;
@@ -342,34 +274,21 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            text-decoration: none;
         }
-        .btn:active { transform: scale(0.96); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .btn-primary { background: var(--primary); color: white; }
         .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3); }
-
         .btn-success { background: var(--secondary); color: white; }
-        .btn-success:hover { background: var(--secondary-dark); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3); }
-
+        .btn-success:hover { background: #059669; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3); }
         .btn-danger { background: var(--danger); color: white; }
-        .btn-danger:hover { background: var(--danger-dark); box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3); }
-
+        .btn-danger:hover { background: #dc2626; box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3); }
         .btn-warning { background: var(--warning); color: white; }
-        .btn-warning:hover { background: var(--warning-dark); box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3); }
-
-        .btn-outline {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text);
-        }
-        .btn-outline:hover { border-color: var(--primary); color: var(--primary); background: rgba(99, 102, 241, 0.05); }
-
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
         .btn-sm { padding: 6px 14px; font-size: 0.75rem; border-radius: 8px; }
-        .btn-lg { padding: 14px 32px; font-size: 1rem; }
 
-        /* ==================== SEARCH BOX ==================== */
+        /* ========== SEARCH ========== */
         .search-box {
             display: flex;
             gap: 12px;
@@ -393,17 +312,9 @@
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
-        /* ==================== TABLE ==================== */
-        .table-responsive {
-            overflow-x: auto;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-        }
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
+        /* ========== TABLE ========== */
+        .table-responsive { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         .data-table thead { background: var(--darker); }
         .data-table th {
             padding: 14px 18px;
@@ -423,7 +334,7 @@
         .data-table tr:last-child td { border-bottom: none; }
         .data-table tr:hover { background: rgba(99, 102, 241, 0.03); }
 
-        /* ==================== TAGS ==================== */
+        /* ========== TAGS ========== */
         .tag {
             display: inline-flex;
             align-items: center;
@@ -437,9 +348,8 @@
         .tag-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
         .tag-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
         .tag-info { background: rgba(59, 130, 246, 0.15); color: var(--info); }
-        .tag-primary { background: rgba(99, 102, 241, 0.15); color: var(--primary); }
 
-        /* ==================== ALERTS ==================== */
+        /* ========== ALERTS ========== */
         .alert {
             padding: 16px 20px;
             border-radius: 12px;
@@ -447,67 +357,12 @@
             display: flex;
             align-items: flex-start;
             gap: 12px;
-            animation: slideIn 0.3s ease;
         }
-        .alert i { font-size: 1.2rem; margin-top: 2px; }
         .alert-danger { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); color: #fca5a5; }
         .alert-success { background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); color: #6ee7b7; }
         .alert-warning { background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); color: #fcd34d; }
 
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ==================== MODAL ==================== */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(8px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-        .modal-overlay.active { opacity: 1; visibility: visible; }
-        .modal {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            width: 92%;
-            max-width: 750px;
-            max-height: 85vh;
-            overflow-y: auto;
-            transform: scale(0.9) translateY(20px);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .modal-overlay.active .modal { transform: scale(1) translateY(0); }
-
-        /* ==================== PROGRESS ==================== */
-        .progress-container { margin: 16px 0; }
-        .progress-bar {
-            height: 8px;
-            background: var(--darker);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), var(--primary-light));
-            border-radius: 4px;
-            transition: width 0.5s ease;
-            width: 0%;
-        }
-        .progress-text { text-align: center; margin-top: 8px; color: var(--text-muted); font-size: 0.85rem; }
-
-        /* ==================== LOGS ==================== */
+        /* ========== LOGS ========== */
         .log-entry {
             display: flex;
             align-items: center;
@@ -529,12 +384,8 @@
         .log-badge.failed { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
         .log-badge.warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
 
-        /* ==================== COMPARE ==================== */
-        .compare-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
+        /* ========== COMPARE ========== */
+        .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .compare-column {
             background: var(--darker);
             border-radius: 12px;
@@ -561,24 +412,13 @@
         }
         .compare-row .label { color: var(--text-muted); }
         .compare-row .value { font-weight: 600; font-family: monospace; }
-        .compare-detail {
-            margin-top: 8px;
-            padding: 8px 12px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-family: monospace;
-            overflow-x: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
 
-        /* ==================== EMPTY STATE ==================== */
+        /* ========== EMPTY STATE ========== */
         .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
         .empty-state i { font-size: 3rem; margin-bottom: 16px; opacity: 0.3; }
         .empty-state h3 { color: var(--text); margin-bottom: 8px; }
 
-        /* ==================== SPINNER ==================== */
+        /* ========== SPINNER ========== */
         .spinner {
             width: 20px;
             height: 20px;
@@ -590,7 +430,7 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ==================== NOTIFICATION ==================== */
+        /* ========== NOTIFICATION ========== */
         .notification-toast {
             position: fixed;
             top: 24px;
@@ -601,7 +441,7 @@
             font-weight: 600;
             z-index: 3000;
             transform: translateX(120%);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.4s ease;
             max-width: 420px;
             box-shadow: 0 12px 48px rgba(0,0,0,0.5);
         }
@@ -610,45 +450,12 @@
         .notification-toast.error { background: var(--danger); }
         .notification-toast.warning { background: var(--warning); }
 
-        /* ==================== PAGE SECTIONS ==================== */
+        /* ========== PAGE SECTIONS ========== */
         .page-section { display: none; animation: fadeIn 0.3s ease; }
         .page-section.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ==================== TOGGLE SWITCH ==================== */
-        .switch {
-            position: relative;
-            width: 48px;
-            height: 26px;
-            flex-shrink: 0;
-        }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .switch .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: var(--border);
-            border-radius: 26px;
-            transition: var(--transition);
-        }
-        .switch .slider:before {
-            content: "";
-            position: absolute;
-            height: 20px;
-            width: 20px;
-            left: 3px;
-            bottom: 3px;
-            background: white;
-            border-radius: 50%;
-            transition: var(--transition);
-        }
-        .switch input:checked + .slider { background: var(--primary); }
-        .switch input:checked + .slider:before { transform: translateX(22px); }
-
-        /* ==================== RESPONSIVE ==================== */
+        /* ========== RESPONSIVE ========== */
         .menu-toggle {
             display: none;
             position: fixed;
@@ -663,10 +470,8 @@
             border-radius: 12px;
             cursor: pointer;
             font-size: 1.2rem;
-            transition: var(--transition);
             box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
         }
-        .menu-toggle:hover { transform: scale(1.05); }
 
         .mobile-overlay {
             display: none;
@@ -680,9 +485,7 @@
         }
         .mobile-overlay.active { display: block; }
 
-        @media (max-width: 992px) {
-            .compare-grid { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 992px) { .compare-grid { grid-template-columns: 1fr; } }
 
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
@@ -704,491 +507,302 @@
 </head>
 <body>
 
-    <!-- ==================== MAINTENANCE BANNER ==================== -->
-    <div class="maintenance-banner" id="maintenanceBanner">
-        <i class="fas fa-tools"></i>
-        <span id="maintenanceMessage">🚧 Website is under maintenance. Deposits and Withdrawals are temporarily disabled.</span>
-        <button class="btn btn-sm" style="background: rgba(255,255,255,0.2); color: white; margin-left: 12px;" onclick="toggleMaintenance()">
-            <i class="fas fa-times"></i> Dismiss
-        </button>
+    <div id="loadingState" class="page-loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:20px;">
+        <div class="spinner" style="width:48px;height:48px;"></div>
+        <p>Loading Admin Panel...</p>
     </div>
 
-    <!-- ==================== MOBILE OVERLAY ==================== -->
-    <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+    <div id="mainContent" style="display:none;">
 
-    <!-- ==================== MENU TOGGLE ==================== -->
-    <button class="menu-toggle" onclick="toggleSidebar()">
-        <i class="fas fa-bars"></i>
-    </button>
+        <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+        <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
 
-    <!-- ==================== SIDEBAR ==================== -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <h2><i class="fas fa-shield-halved"></i> RND Backup</h2>
-            <p>Admin Backup Manager v3.0</p>
-            <span class="version">PRODUCTION READY</span>
-        </div>
-
-        <div class="admin-profile">
-            <div class="avatar" id="adminAvatar">A</div>
-            <div class="info">
-                <div class="name" id="adminName">Admin</div>
-                <div class="role" id="adminRole"><span class="super">★ Super Admin</span></div>
-            </div>
-            <button class="logout-btn" onclick="adminLogout()" title="Logout">
-                <i class="fas fa-sign-out-alt"></i>
-            </button>
-        </div>
-
-        <nav class="nav-menu">
-            <div class="nav-section-title">Main</div>
-            <a class="nav-item active" onclick="showSection('dashboard')">
-                <i class="fas fa-chart-line"></i> Dashboard
-            </a>
-            <a class="nav-item" onclick="showSection('search')">
-                <i class="fas fa-search"></i> Search User
-            </a>
-            <a class="nav-item" onclick="showSection('compare')">
-                <i class="fas fa-code-compare"></i> Compare Data
-            </a>
-
-            <div class="nav-section-title" style="margin-top:12px;">Recovery</div>
-            <a class="nav-item" onclick="showSection('sync')">
-                <i class="fas fa-rotate"></i> Sync User
-            </a>
-            <a class="nav-item" onclick="showSection('restore')">
-                <i class="fas fa-rotate-left"></i> Restore User
-            </a>
-            <a class="nav-item" onclick="showSection('restore-all')">
-                <i class="fas fa-database"></i> Restore All
-                <span class="badge danger" id="restoreAllBadge">LOCKED</span>
-            </a>
-            <a class="nav-item" onclick="showSection('backup-history')">
-                <i class="fas fa-history"></i> Backup History
-            </a>
-            <a class="nav-item" onclick="showSection('deleted')">
-                <i class="fas fa-trash-can"></i> Deleted Users
-                <span class="badge danger" id="deletedBadge">0</span>
-            </a>
-
-            <div class="nav-section-title" style="margin-top:12px;">System</div>
-            <a class="nav-item" onclick="showSection('status')">
-                <i class="fas fa-heart-pulse"></i> Backup Status
-            </a>
-            <a class="nav-item" onclick="showSection('health')">
-                <i class="fas fa-stethoscope"></i> Health Check
-                <span class="badge success" id="healthBadge">OK</span>
-            </a>
-            <a class="nav-item" onclick="showSection('logs')">
-                <i class="fas fa-clock-rotate-left"></i> Activity Log
-                <span class="badge info" id="logBadge">0</span>
-            </a>
-            <a class="nav-item" onclick="showSection('download')">
-                <i class="fas fa-download"></i> Download Backup
-            </a>
-            <a class="nav-item" onclick="showSection('settings')">
-                <i class="fas fa-gear"></i> Settings
-            </a>
-        </nav>
-    </aside>
-
-    <!-- ==================== MAIN CONTENT ==================== -->
-    <main class="main-content">
-
-        <!-- ==================== DASHBOARD ==================== -->
-        <div id="dashboard" class="page-section active">
-            <div class="top-bar">
-                <div class="left">
-                    <h1><i class="fas fa-chart-line"></i> Dashboard</h1>
-                </div>
-                <div class="right">
-                    <div class="status-pill">
-                        <span class="status-dot online" id="mainStatusDot"></span>
-                        <span>Main Firebase</span>
-                    </div>
-                    <div class="status-pill">
-                        <span class="status-dot online" id="backupStatusDot"></span>
-                        <span>Backup Firebase</span>
-                    </div>
-                    <button class="btn btn-warning btn-sm" onclick="toggleMaintenance()">
-                        <i class="fas fa-tools"></i> Maintenance
-                    </button>
-                </div>
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-shield-halved"></i> RND Backup</h2>
+                <p>Admin Backup Manager v3.0</p>
+                <span class="version">PRODUCTION READY</span>
             </div>
 
-            <div id="deletedAlertContainer"></div>
-            <div id="healthAlertContainer"></div>
-
-            <div class="card-grid">
-                <div class="stat-card primary">
-                    <div class="top"><div class="icon"><i class="fas fa-users"></i></div></div>
-                    <div class="value" id="totalUsers">0</div>
-                    <div class="label">Total Users</div>
+            <div class="admin-profile">
+                <div class="avatar" id="adminAvatar">A</div>
+                <div class="info">
+                    <div class="name" id="adminName">Admin</div>
+                    <div class="role" id="adminRole"><span class="super">★ Super Admin</span></div>
                 </div>
-                <div class="stat-card success">
-                    <div class="top"><div class="icon"><i class="fas fa-user-check"></i></div></div>
-                    <div class="value" id="activeUsers">0</div>
-                    <div class="label">Active Users</div>
-                </div>
-                <div class="stat-card info">
-                    <div class="top"><div class="icon"><i class="fas fa-clock"></i></div></div>
-                    <div class="value" id="lastSync">--</div>
-                    <div class="label">Last Sync Time</div>
-                </div>
-                <div class="stat-card warning">
-                    <div class="top"><div class="icon"><i class="fas fa-database"></i></div></div>
-                    <div class="value" id="lastBackup">--</div>
-                    <div class="label">Last Backup Time</div>
-                </div>
-                <div class="stat-card danger">
-                    <div class="top"><div class="icon"><i class="fas fa-triangle-exclamation"></i></div></div>
-                    <div class="value" id="failedSync">0</div>
-                    <div class="label">Failed Sync Count</div>
-                </div>
-                <div class="stat-card danger">
-                    <div class="top"><div class="icon"><i class="fas fa-user-xmark"></i></div></div>
-                    <div class="value" id="deletedUsersCount">0</div>
-                    <div class="label">Deleted Users</div>
-                </div>
-            </div>
-
-            <div class="section">
-                <div class="section-header">
-                    <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
-                    <span class="subtitle">Server-side processing via Cloud Functions</span>
-                </div>
-                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                    <button class="btn btn-success" onclick="triggerFullSync()">
-                        <i class="fas fa-rotate"></i> Full Sync Now
-                    </button>
-                    <button class="btn btn-danger" onclick="showSection('restore-all')" id="quickRestoreAll">
-                        <i class="fas fa-database"></i> Restore All Users
-                    </button>
-                    <button class="btn btn-primary" onclick="showSection('health')">
-                        <i class="fas fa-stethoscope"></i> Health Check
-                    </button>
-                    <button class="btn btn-outline" onclick="showSection('logs')">
-                        <i class="fas fa-clock-rotate-left"></i> View Logs
-                    </button>
-                </div>
-            </div>
-
-            <!-- Backup History Quick View -->
-            <div class="section">
-                <div class="section-header">
-                    <h2><i class="fas fa-history"></i> Recent Backups</h2>
-                    <button class="btn btn-outline btn-sm" onclick="showSection('backup-history')">View All</button>
-                </div>
-                <div id="recentBackups"></div>
-            </div>
-        </div>
-
-        <!-- ==================== SEARCH USER ==================== -->
-        <div id="search" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-search"></i> Search User</h1></div>
-            </div>
-            <div class="section">
-                <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Enter UID, Email, or Name..." />
-                    <button class="btn btn-primary" onclick="searchUser()"><i class="fas fa-search"></i> Search</button>
-                    <button class="btn btn-outline" onclick="document.getElementById('searchInput').value=''; document.getElementById('searchResults').innerHTML='';"><i class="fas fa-times"></i> Clear</button>
-                </div>
-                <div id="searchResults"></div>
-            </div>
-        </div>
-
-        <!-- ==================== COMPARE DATA ==================== -->
-        <div id="compare" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-code-compare"></i> Compare Data</h1></div>
-            </div>
-            <div class="section">
-                <div class="search-box">
-                    <input type="text" id="compareInput" placeholder="Enter UID to compare data..." />
-                    <button class="btn btn-primary" onclick="compareUserData()"><i class="fas fa-code-compare"></i> Compare</button>
-                </div>
-                <div id="compareResults"></div>
-            </div>
-        </div>
-
-        <!-- ==================== SYNC USER ==================== -->
-        <div id="sync" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-rotate"></i> Sync User</h1></div>
-            </div>
-            <div class="section">
-                <div class="search-box">
-                    <input type="text" id="syncInput" placeholder="Enter UID to sync..." />
-                    <button class="btn btn-success" onclick="syncUser()"><i class="fas fa-rotate"></i> Sync Now</button>
-                </div>
-                <div id="syncResults"></div>
-            </div>
-        </div>
-
-        <!-- ==================== RESTORE USER ==================== -->
-        <div id="restore" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-rotate-left"></i> Restore User</h1></div>
-            </div>
-            <div class="section">
-                <div class="search-box">
-                    <input type="text" id="restoreInput" placeholder="Enter UID to restore from backup..." />
-                    <button class="btn btn-danger" onclick="restoreUser()"><i class="fas fa-rotate-left"></i> Restore User</button>
-                </div>
-                <div id="restoreResults"></div>
-            </div>
-        </div>
-
-        <!-- ==================== RESTORE ALL USERS ==================== -->
-        <div id="restore-all" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-database"></i> Restore All Users</h1></div>
-            </div>
-            <div class="section" style="text-align: center; padding: 60px 24px;">
-                <i class="fas fa-database" style="font-size: 4rem; color: var(--danger); margin-bottom: 24px;"></i>
-                <h2 style="margin-bottom: 12px;">Restore All Users from Backup</h2>
-                <p style="color: var(--text-muted); margin-bottom: 8px; max-width: 550px; margin-left: auto; margin-right: auto; line-height: 1.6;">
-                    This will restore <strong>ALL user data</strong> from Backup Firebase to Main Firebase.
-                    <br>
-                    <span style="color: var(--danger);">⚠️ This action cannot be undone.</span>
-                    <br>
-                    <span style="font-size: 0.85rem;">Powered by Cloud Functions - Batch processing for large databases</span>
-                </p>
-                <div style="margin: 16px 0; padding: 12px; background: var(--darker); border-radius: 8px; display: inline-block;">
-                    <span id="restoreAllStatus" style="color: var(--text-muted); font-size: 0.9rem;">
-                        <i class="fas fa-shield-halved"></i> 
-                        <span id="restoreAllPermission">Super Admin Only</span>
-                    </span>
-                </div>
-                <div id="restoreAllProgress" style="display: none; max-width: 500px; margin: 0 auto 24px;">
-                    <div class="progress-container">
-                        <div class="progress-bar"><div class="progress-fill" id="restoreAllProgressBar"></div></div>
-                        <div class="progress-text" id="restoreAllProgressText">0 / 0 users restored</div>
-                    </div>
-                </div>
-                <button class="btn btn-danger btn-lg" id="restoreAllBtn" onclick="restoreAllUsers()" disabled>
-                    <i class="fas fa-lock"></i> Super Admin Only
+                <button class="logout-btn" onclick="adminLogout()" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
                 </button>
-                <div style="margin-top: 12px; font-size: 0.8rem; color: var(--text-muted);">
-                    <span id="restoreAllWarning">⚠️ Type <strong>"RESTORE ALL"</strong> to confirm</span>
-                </div>
             </div>
-        </div>
 
-        <!-- ==================== BACKUP HISTORY ==================== -->
-        <div id="backup-history" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-history"></i> Backup History</h1></div>
-                <div class="right">
-                    <button class="btn btn-outline btn-sm" onclick="loadBackupHistory()"><i class="fas fa-rotate"></i> Refresh</button>
-                </div>
-            </div>
-            <div class="section">
-                <div id="backupHistoryList"></div>
-            </div>
-        </div>
+            <nav class="nav-menu">
+                <div class="nav-section-title">Main</div>
+                <a class="nav-item active" onclick="showSection('dashboard')"><i class="fas fa-chart-line"></i> Dashboard</a>
+                <a class="nav-item" onclick="showSection('search')"><i class="fas fa-search"></i> Search User</a>
+                <a class="nav-item" onclick="showSection('compare')"><i class="fas fa-code-compare"></i> Compare Data</a>
 
-        <!-- ==================== DELETED USERS ==================== -->
-        <div id="deleted" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-trash-can"></i> Deleted Users</h1></div>
-                <div class="right">
-                    <button class="btn btn-outline btn-sm" onclick="refreshDeletedUsers()"><i class="fas fa-rotate"></i> Refresh</button>
-                </div>
-            </div>
-            <div class="section">
-                <div id="deletedUsersList"></div>
-            </div>
-        </div>
+                <div class="nav-section-title" style="margin-top:12px;">Recovery</div>
+                <a class="nav-item" onclick="showSection('sync')"><i class="fas fa-rotate"></i> Sync User</a>
+                <a class="nav-item" onclick="showSection('restore')"><i class="fas fa-rotate-left"></i> Restore User</a>
+                <a class="nav-item" onclick="showSection('restore-all')">
+                    <i class="fas fa-database"></i> Restore All
+                    <span class="badge danger" id="restoreAllBadge">LOCKED</span>
+                </a>
+                <a class="nav-item" onclick="showSection('deleted')">
+                    <i class="fas fa-trash-can"></i> Deleted Users
+                    <span class="badge danger" id="deletedBadge">0</span>
+                </a>
 
-        <!-- ==================== BACKUP STATUS ==================== -->
-        <div id="status" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-heart-pulse"></i> Backup Status</h1></div>
-                <div class="right">
-                    <button class="btn btn-outline btn-sm" onclick="checkBackupStatus()"><i class="fas fa-rotate"></i> Refresh</button>
+                <div class="nav-section-title" style="margin-top:12px;">System</div>
+                <a class="nav-item" onclick="showSection('status')"><i class="fas fa-heart-pulse"></i> Backup Status</a>
+                <a class="nav-item" onclick="showSection('health')">
+                    <i class="fas fa-stethoscope"></i> Health Check
+                    <span class="badge success" id="healthBadge">OK</span>
+                </a>
+                <a class="nav-item" onclick="showSection('logs')">
+                    <i class="fas fa-clock-rotate-left"></i> Activity Log
+                    <span class="badge info" id="logBadge">0</span>
+                </a>
+                <a class="nav-item" onclick="showSection('download')"><i class="fas fa-download"></i> Download Backup</a>
+                <a class="nav-item" onclick="showSection('settings')"><i class="fas fa-gear"></i> Settings</a>
+            </nav>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <!-- DASHBOARD -->
+            <div id="dashboard" class="page-section active">
+                <div class="top-bar">
+                    <div class="left"><h1><i class="fas fa-chart-line"></i> Dashboard</h1></div>
+                    <div class="right">
+                        <div class="status-pill"><span class="status-dot online" id="mainStatusDot"></span> Main Firebase</div>
+                        <div class="status-pill"><span class="status-dot online" id="backupStatusDot"></span> Backup Firebase</div>
+                    </div>
                 </div>
-            </div>
-            <div class="section">
+
+                <div id="deletedAlertContainer"></div>
+                <div id="healthAlertContainer"></div>
+
                 <div class="card-grid">
-                    <div class="stat-card primary">
-                        <div class="top"><div class="icon"><i class="fas fa-server"></i></div></div>
-                        <div class="value" id="mainDbStatus">Checking...</div>
-                        <div class="label">Main Firebase Status</div>
+                    <div class="stat-card primary"><div class="icon"><i class="fas fa-users"></i></div><div class="value" id="totalUsers">0</div><div class="label">Total Users</div></div>
+                    <div class="stat-card success"><div class="icon"><i class="fas fa-user-check"></i></div><div class="value" id="activeUsers">0</div><div class="label">Active Users</div></div>
+                    <div class="stat-card info"><div class="icon"><i class="fas fa-clock"></i></div><div class="value" id="lastSync">--</div><div class="label">Last Sync Time</div></div>
+                    <div class="stat-card warning"><div class="icon"><i class="fas fa-database"></i></div><div class="value" id="lastBackup">--</div><div class="label">Last Backup Time</div></div>
+                    <div class="stat-card danger"><div class="icon"><i class="fas fa-triangle-exclamation"></i></div><div class="value" id="failedSync">0</div><div class="label">Failed Sync</div></div>
+                    <div class="stat-card danger"><div class="icon"><i class="fas fa-user-xmark"></i></div><div class="value" id="deletedUsersCount">0</div><div class="label">Deleted Users</div></div>
+                </div>
+
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
                     </div>
-                    <div class="stat-card success">
-                        <div class="top"><div class="icon"><i class="fas fa-server"></i></div></div>
-                        <div class="value" id="backupDbStatus">Checking...</div>
-                        <div class="label">Backup Firebase Status</div>
-                    </div>
-                    <div class="stat-card info">
-                        <div class="top"><div class="icon"><i class="fas fa-link"></i></div></div>
-                        <div class="value" id="syncStatus">Checking...</div>
-                        <div class="label">Sync Status</div>
-                    </div>
-                    <div class="stat-card warning">
-                        <div class="top"><div class="icon"><i class="fas fa-database"></i></div></div>
-                        <div class="value" id="totalRecords">0</div>
-                        <div class="label">Total Records Backed Up</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                        <button class="btn btn-success" onclick="triggerFullSync()"><i class="fas fa-rotate"></i> Full Sync</button>
+                        <button class="btn btn-danger" onclick="showSection('restore-all')"><i class="fas fa-database"></i> Restore All</button>
+                        <button class="btn btn-primary" onclick="showSection('health')"><i class="fas fa-stethoscope"></i> Health Check</button>
+                        <button class="btn btn-outline" onclick="showSection('logs')"><i class="fas fa-clock-rotate-left"></i> View Logs</button>
                     </div>
                 </div>
 
-                <div style="margin-top: 16px; padding: 16px; background: var(--darker); border-radius: 12px;">
-                    <h4 style="margin-bottom: 8px;"><i class="fas fa-calendar"></i> Backup Schedule</h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; font-size: 0.85rem; color: var(--text-muted);">
-                        <div><span class="tag tag-success">●</span> Daily Backup: 2:00 AM IST</div>
-                        <div><span class="tag tag-info">●</span> Weekly Backup: Sunday 3:00 AM IST</div>
-                        <div><span class="tag tag-warning">●</span> Auto Sync: Real-time</div>
-                        <div><span class="tag tag-primary">●</span> Deleted Detection: Real-time</div>
+                <div class="section">
+                    <div class="section-header">
+                        <h2><i class="fas fa-history"></i> Recent Activity</h2>
                     </div>
+                    <div id="recentActivity"></div>
                 </div>
             </div>
-        </div>
 
-        <!-- ==================== HEALTH CHECK ==================== -->
-        <div id="health" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-stethoscope"></i> Health Check</h1></div>
-                <div class="right">
-                    <button class="btn btn-primary btn-sm" onclick="runHealthCheck()"><i class="fas fa-play"></i> Run Check</button>
+            <!-- SEARCH -->
+            <div id="search" class="page-section">
+                <div class="top-bar"><div class="left"><h1><i class="fas fa-search"></i> Search User</h1></div></div>
+                <div class="section">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="Enter UID, Email, or Name..." />
+                        <button class="btn btn-primary" onclick="searchUser()"><i class="fas fa-search"></i> Search</button>
+                        <button class="btn btn-outline" onclick="document.getElementById('searchInput').value='';document.getElementById('searchResults').innerHTML='';"><i class="fas fa-times"></i> Clear</button>
+                    </div>
+                    <div id="searchResults"></div>
                 </div>
             </div>
-            <div class="section">
-                <div id="healthResults"></div>
-            </div>
-        </div>
 
-        <!-- ==================== ACTIVITY LOG ==================== -->
-        <div id="logs" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-clock-rotate-left"></i> Activity Log</h1></div>
-                <div class="right">
-                    <button class="btn btn-outline btn-sm" onclick="refreshLogs()"><i class="fas fa-rotate"></i> Refresh</button>
-                    <button class="btn btn-danger btn-sm" onclick="clearLogs()"><i class="fas fa-trash"></i> Clear All</button>
-                    <button class="btn btn-primary btn-sm" onclick="exportLogs()"><i class="fas fa-download"></i> Export</button>
+            <!-- COMPARE -->
+            <div id="compare" class="page-section">
+                <div class="top-bar"><div class="left"><h1><i class="fas fa-code-compare"></i> Compare Data</h1></div></div>
+                <div class="section">
+                    <div class="search-box">
+                        <input type="text" id="compareInput" placeholder="Enter UID to compare..." />
+                        <button class="btn btn-primary" onclick="compareUserData()"><i class="fas fa-code-compare"></i> Compare</button>
+                    </div>
+                    <div id="compareResults"></div>
                 </div>
             </div>
-            <div class="section">
-                <div id="activityLog"></div>
-            </div>
-        </div>
 
-        <!-- ==================== DOWNLOAD BACKUP ==================== -->
-        <div id="download" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-download"></i> Download Backup</h1></div>
+            <!-- SYNC -->
+            <div id="sync" class="page-section">
+                <div class="top-bar"><div class="left"><h1><i class="fas fa-rotate"></i> Sync User</h1></div></div>
+                <div class="section">
+                    <div class="search-box">
+                        <input type="text" id="syncInput" placeholder="Enter UID to sync..." />
+                        <button class="btn btn-success" onclick="syncUser()"><i class="fas fa-rotate"></i> Sync Now</button>
+                    </div>
+                    <div id="syncResults"></div>
+                </div>
             </div>
-            <div class="section" style="text-align: center; padding: 60px 24px;">
-                <i class="fas fa-cloud-arrow-down" style="font-size: 4rem; color: var(--primary); margin-bottom: 24px;"></i>
-                <h2 style="margin-bottom: 12px;">Download Full Backup</h2>
-                <p style="color: var(--text-muted); margin-bottom: 8px; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.6;">
-                    Download a complete backup of all user data from Backup Firebase.
-                    <br>
-                    <span style="font-size: 0.85rem;">File is generated server-side and compressed as ZIP.</span>
-                </p>
-                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 24px;">
-                    <button class="btn btn-primary btn-lg" onclick="downloadBackup()">
-                        <i class="fas fa-download"></i> Download ZIP Backup
+
+            <!-- RESTORE -->
+            <div id="restore" class="page-section">
+                <div class="top-bar"><div class="left"><h1><i class="fas fa-rotate-left"></i> Restore User</h1></div></div>
+                <div class="section">
+                    <div class="search-box">
+                        <input type="text" id="restoreInput" placeholder="Enter UID to restore..." />
+                        <button class="btn btn-danger" onclick="restoreUser()"><i class="fas fa-rotate-left"></i> Restore</button>
+                    </div>
+                    <div id="restoreResults"></div>
+                </div>
+            </div>
+
+            <!-- RESTORE ALL -->
+            <div id="restore-all" class="page-section">
+                <div class="top-bar"><div class="left"><h1><i class="fas fa-database"></i> Restore All Users</h1></div></div>
+                <div class="section" style="text-align:center;padding:60px 24px;">
+                    <i class="fas fa-database" style="font-size:4rem;color:var(--danger);margin-bottom:24px;"></i>
+                    <h2 style="margin-bottom:12px;">Restore All Users from Backup</h2>
+                    <p style="color:var(--text-muted);margin-bottom:8px;max-width:550px;margin-left:auto;margin-right:auto;line-height:1.6;">
+                        This will restore <strong>ALL user data</strong> from Backup to Main Firebase.
+                        <br><span style="color:var(--danger);">⚠️ This action cannot be undone.</span>
+                    </p>
+                    <div style="margin:16px 0;padding:12px;background:var(--darker);border-radius:8px;display:inline-block;">
+                        <span id="restoreAllStatus" style="color:var(--text-muted);font-size:0.9rem;">
+                            <i class="fas fa-shield-halved"></i> 
+                            <span id="restoreAllPermission">Super Admin Only</span>
+                        </span>
+                    </div>
+                    <div id="restoreAllProgress" style="display:none;max-width:500px;margin:0 auto 24px;">
+                        <div class="progress-container">
+                            <div class="progress-bar"><div class="progress-fill" id="restoreAllProgressBar"></div></div>
+                            <div class="progress-text" id="restoreAllProgressText">0 / 0 users restored</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger btn-lg" id="restoreAllBtn" onclick="restoreAllUsers()" disabled>
+                        <i class="fas fa-lock"></i> Super Admin Only
                     </button>
-                    <button class="btn btn-outline btn-lg" onclick="downloadBackupHistory()">
-                        <i class="fas fa-history"></i> Download History
-                    </button>
-                </div>
-                <div style="margin-top: 16px; font-size: 0.8rem; color: var(--text-muted);">
-                    <i class="fas fa-shield-halved"></i> Secure signed URL - expires in 10 minutes
+                    <div style="margin-top:12px;font-size:0.8rem;color:var(--text-muted);">
+                        <span id="restoreAllWarning">⚠️ Type <strong>"RESTORE ALL"</strong> to confirm</span>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- ==================== SETTINGS ==================== -->
-        <div id="settings" class="page-section">
-            <div class="top-bar">
-                <div class="left"><h1><i class="fas fa-gear"></i> Settings</h1></div>
+            <!-- DELETED -->
+            <div id="deleted" class="page-section">
+                <div class="top-bar">
+                    <div class="left"><h1><i class="fas fa-trash-can"></i> Deleted Users</h1></div>
+                    <div class="right"><button class="btn btn-outline btn-sm" onclick="refreshDeletedUsers()"><i class="fas fa-rotate"></i> Refresh</button></div>
+                </div>
+                <div class="section"><div id="deletedUsersList"></div></div>
             </div>
-            <div class="section">
-                <h3 style="margin-bottom: 16px;"><i class="fas fa-sliders"></i> Backup Preferences</h3>
-                <div style="display: grid; gap: 16px; max-width: 500px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--darker); border-radius: 10px;">
-                        <div>
-                            <div style="font-weight: 600;">Auto Sync</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">Real-time backup to Firebase</div>
+
+            <!-- STATUS -->
+            <div id="status" class="page-section">
+                <div class="top-bar">
+                    <div class="left"><h1><i class="fas fa-heart-pulse"></i> Backup Status</h1></div>
+                    <div class="right"><button class="btn btn-outline btn-sm" onclick="checkBackupStatus()"><i class="fas fa-rotate"></i> Refresh</button></div>
+                </div>
+                <div class="section">
+                    <div class="card-grid">
+                        <div class="stat-card primary"><div class="icon"><i class="fas fa-server"></i></div><div class="value" id="mainDbStatus">Checking...</div><div class="label">Main Firebase</div></div>
+                        <div class="stat-card success"><div class="icon"><i class="fas fa-server"></i></div><div class="value" id="backupDbStatus">Checking...</div><div class="label">Backup Firebase</div></div>
+                        <div class="stat-card info"><div class="icon"><i class="fas fa-link"></i></div><div class="value" id="syncStatus">Checking...</div><div class="label">Sync Status</div></div>
+                        <div class="stat-card warning"><div class="icon"><i class="fas fa-database"></i></div><div class="value" id="totalRecords">0</div><div class="label">Total Records</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HEALTH -->
+            <div id="health" class="page-section">
+                <div class="top-bar">
+                    <div class="left"><h1><i class="fas fa-stethoscope"></i> Health Check</h1></div>
+                    <div class="right"><button class="btn btn-primary btn-sm" onclick="runHealthCheck()"><i class="fas fa-play"></i> Run Check</button></div>
+                </div>
+                <div class="section"><div id="healthResults"></div></div>
+            </div>
+
+            <!-- LOGS -->
+            <div id="logs" class="page-section">
+                <div class="top-bar">
+                    <div class="left"><h1><i class="fas fa-clock-rotate-left"></i> Activity Log</h1></div>
+                    <div class="right">
+                        <button class="btn btn-outline btn-sm" onclick="refreshLogs()"><i class="fas fa-rotate"></i> Refresh</button>
+                        <button class="btn btn-danger btn-sm" onclick="clearLogs()"><i class="fas fa-trash"></i> Clear</button>
+                        <button class="btn btn-primary btn-sm" onclick="exportLogs()"><i class="fas fa-download"></i> Export</button>
+                    </div>
+                </div>
+                <div class="section"><div id="activityLog"></div></div>
+            </div>
+
+            <!-- DOWNLOAD -->
+            <div id="download" class="page-section">
+                <div class="top-bar"><div class="left"><h1><i class="fas fa-download"></i> Download Backup</h1></div></div>
+                <div class="section" style="text-align:center;padding:60px 24px;">
+                    <i class="fas fa-cloud-arrow-down" style="font-size:4rem;color:var(--primary);margin-bottom:24px;"></i>
+                    <h2 style="margin-bottom:12px;">Download Full Backup</h2>
+                    <p style="color:var(--text-muted);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto;">Download a complete backup of all user data from Backup Firebase.</p>
+                    <button class="btn btn-primary btn-lg" onclick="downloadBackup()"><i class="fas fa-download"></i> Download Backup</button>
+                </div>
+            </div>
+
+            <!-- SETTINGS -->
+            <div id="settings" class="page-section">
+                <div class="top-bar"><div class="left"><h1><i class="fas fa-gear"></i> Settings</h1></div></div>
+                <div class="section">
+                    <h3 style="margin-bottom:16px;"><i class="fas fa-sliders"></i> Backup Preferences</h3>
+                    <div style="display:grid;gap:16px;max-width:500px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--darker);border-radius:10px;">
+                            <div><div style="font-weight:600;">Auto Sync</div><div style="font-size:0.8rem;color:var(--text-muted);">Real-time backup</div></div>
+                            <label class="switch"><input type="checkbox" id="autoSyncToggle" checked onchange="toggleAutoSync()"><span class="slider"></span></label>
                         </div>
-                        <label class="switch">
-                            <input type="checkbox" id="autoSyncToggle" checked onchange="toggleAutoSync()">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--darker); border-radius: 10px;">
-                        <div>
-                            <div style="font-weight: 600;">Deleted User Alerts</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">Notify when users are deleted</div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--darker);border-radius:10px;">
+                            <div><div style="font-weight:600;">Delete Alerts</div><div style="font-size:0.8rem;color:var(--text-muted);">Notify on user deletion</div></div>
+                            <label class="switch"><input type="checkbox" id="deleteAlertsToggle" checked onchange="toggleDeleteAlerts()"><span class="slider"></span></label>
                         </div>
-                        <label class="switch">
-                            <input type="checkbox" id="deleteAlertsToggle" checked onchange="toggleDeleteAlerts()">
-                            <span class="slider"></span>
-                        </label>
                     </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--darker); border-radius: 10px;">
-                        <div>
-                            <div style="font-weight: 600;">Maintenance Mode</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">Disable deposits/withdrawals</div>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="maintenanceToggle" onchange="toggleMaintenance()">
-                            <span class="slider"></span>
-                        </label>
+                </div>
+                <div class="section">
+                    <h3 style="margin-bottom:16px;"><i class="fas fa-info-circle"></i> System Info</h3>
+                    <div style="display:grid;gap:8px;font-size:0.9rem;color:var(--text-muted);">
+                        <div><strong>Version:</strong> 3.0.0</div>
+                        <div><strong>Environment:</strong> Production</div>
+                        <div><strong>Security:</strong> Firebase Auth</div>
                     </div>
                 </div>
             </div>
 
-            <div class="section">
-                <h3 style="margin-bottom: 16px;"><i class="fas fa-user-shield"></i> Admin Management</h3>
-                <div style="max-width: 500px;">
-                    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
-                        <input type="email" id="newAdminEmail" placeholder="Admin Email" style="flex:1; padding: 10px 14px; background: var(--darker); border: 1px solid var(--border); border-radius: 8px; color: var(--text);">
-                        <button class="btn btn-success" onclick="addAdmin()"><i class="fas fa-plus"></i> Add</button>
-                    </div>
-                    <div id="adminList"></div>
-                </div>
-            </div>
+        </main>
+    </div>
 
-            <div class="section">
-                <h3 style="margin-bottom: 16px;"><i class="fas fa-info-circle"></i> System Info</h3>
-                <div style="display: grid; gap: 8px; font-size: 0.9rem; color: var(--text-muted);">
-                    <div><strong>Version:</strong> 3.0.0</div>
-                    <div><strong>Environment:</strong> Production</div>
-                    <div><strong>Backup Engine:</strong> Cloud Functions v3</div>
-                    <div><strong>Security:</strong> Firebase Auth + Custom Claims</div>
-                    <div><strong>Data Protection:</strong> Server-side processing</div>
-                </div>
-            </div>
-        </div>
-
-    </main>
-
-    <!-- ==================== MODAL ==================== -->
-    <div class="modal-overlay" id="modal">
-        <div class="modal">
-            <div class="modal-header">
+    <!-- MODAL -->
+    <div class="modal-overlay" id="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:2000;align-items:center;justify-content:center;">
+        <div class="modal" style="background:var(--card-bg);border:1px solid var(--border);border-radius:20px;width:92%;max-width:750px;max-height:85vh;overflow-y:auto;padding:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                 <h3 id="modalTitle"><i class="fas fa-info-circle"></i> Title</h3>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
+                <button onclick="closeModal()" style="background:none;border:none;color:var(--text-muted);font-size:1.5rem;cursor:pointer;">&times;</button>
             </div>
-            <div class="modal-body" id="modalBody"></div>
-            <div class="modal-footer" id="modalFooter"></div>
+            <div id="modalBody"></div>
+            <div id="modalFooter" style="margin-top:16px;display:flex;gap:12px;justify-content:flex-end;"></div>
         </div>
     </div>
 
-    <!-- ==================== NOTIFICATION ==================== -->
+    <!-- NOTIFICATION -->
     <div class="notification-toast" id="notification"></div>
 
-    <!-- ==================== FIREBASE SDK ==================== -->
+    <!-- FIREBASE SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
 
-    <!-- ==================== ADMIN.JS ==================== -->
+    <!-- admin.js -->
     <script src="admin.js"></script>
 
 </body>
