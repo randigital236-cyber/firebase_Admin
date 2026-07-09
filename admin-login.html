@@ -369,11 +369,6 @@
             font-weight: 500;
         }
 
-        /* ==================== HIDE DEMO CREDENTIALS ==================== */
-        .demo-credentials {
-            display: none;
-        }
-
         @media (max-width: 480px) {
             .login-container {
                 padding: 32px 24px;
@@ -415,16 +410,6 @@
             <span class="version">v3.0 PRODUCTION</span>
         </div>
 
-        <!-- Demo Credentials - HIDDEN (Only for Admin reference) -->
-        <div class="demo-credentials">
-            <p>📧 Admin Credentials</p>
-            <div class="cred">
-                Email: <span>rkv858810@gmail.com</span>
-                &nbsp;|&nbsp;
-                Password: <span>123@Randigital</span>
-            </div>
-        </div>
-
         <!-- Error & Success Messages -->
         <div class="error-container">
             <div class="error-message" id="errorMessage">
@@ -438,7 +423,7 @@
             <span>Login successful! Redirecting...</span>
         </div>
 
-        <!-- Login Form - Email/Password NOT pre-filled -->
+        <!-- Login Form -->
         <form id="loginForm" onsubmit="handleLogin(event)">
 
             <!-- Email -->
@@ -523,12 +508,12 @@
             appId: "1:468625887938:web:5cb4ddbcf31b6fc0a4615b"
         };
 
-        // ==================== YOUR NEW ADMIN CREDENTIALS ====================
+        // ==================== YOUR ADMIN CREDENTIALS ====================
         // ✅ Email: rkv858810@gmail.com
         // ✅ Password: 123@Randigital
 
         const SUPER_ADMINS = [
-            'rkv858810@gmail.com', // ← YOUR NEW EMAIL
+            'rkv858810@gmail.com',
             'randigital236@gmail.com',
             'admin@rnd.com',
             'superadmin@rnd.com'
@@ -542,10 +527,10 @@
                 app = firebase.initializeApp(FIREBASE_CONFIG);
                 auth = firebase.auth(app);
                 db = firebase.database(app);
-                console.log('[RND Login] Firebase initialized');
-                console.log('[RND Login] Admin Email: rkv858810@gmail.com');
+                console.log('✅ Firebase initialized');
+                console.log('📧 Admin Email: rkv858810@gmail.com');
             } catch (e) {
-                console.error('Firebase init error:', e);
+                console.error('❌ Firebase init error:', e);
                 showError('Failed to initialize Firebase. Please check your connection.');
             }
         }
@@ -614,6 +599,22 @@
             }
         }
 
+        // ==================== AUTO CREATE ADMIN ON LOGIN ====================
+        async function autoCreateAdmin(uid, email) {
+            try {
+                // Agar email SUPER_ADMINS list mein hai toh auto-create admin
+                if (SUPER_ADMINS.includes(email)) {
+                    await db.ref(`admins/${uid}`).set(true);
+                    console.log('✅ Auto-created admin for:', email);
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.error('Auto-create admin error:', e);
+                return false;
+            }
+        }
+
         // ==================== HANDLE LOGIN ====================
         async function handleLogin(event) {
             event.preventDefault();
@@ -621,7 +622,6 @@
             const email = emailInput.value.trim();
             const password = passwordInput.value.trim();
 
-            // Validate
             if (!email) {
                 showError('Please enter your email address');
                 return;
@@ -635,20 +635,21 @@
                 return;
             }
 
-            // Show loading
             loginBtn.disabled = true;
             loginBtn.innerHTML = '<div class="spinner"></div> Logging in...';
             errorMessage.classList.remove('show');
             successMessage.classList.remove('show');
 
             try {
-                // Sign in with Firebase Auth
                 const result = await auth.signInWithEmailAndPassword(email, password);
                 const user = result.user;
 
                 if (!user) {
                     throw new Error('Authentication failed');
                 }
+
+                // AUTO-CREATE ADMIN (MAGIC!)
+                await autoCreateAdmin(user.uid, email);
 
                 // Check admin status
                 const adminStatus = await checkAdminStatus(user.uid, email);
@@ -661,7 +662,6 @@
                     return;
                 }
 
-                // Create admin session
                 const adminSession = {
                     uid: user.uid,
                     email: user.email,
@@ -671,15 +671,13 @@
                     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
                 };
 
-                // Save session
                 if (rememberMe.checked) {
                     localStorage.setItem('adminSession', JSON.stringify(adminSession));
                 } else {
                     sessionStorage.setItem('adminSession', JSON.stringify(adminSession));
                 }
 
-                console.log('[RND Login] ✅ Admin logged in:', email);
-
+                console.log('✅ Admin logged in:', email);
                 showSuccess('Login successful! Redirecting to dashboard...');
 
                 setTimeout(() => {
@@ -692,15 +690,15 @@
                 let errorMsg = 'Login failed. Please try again.';
 
                 if (err.code === 'auth/user-not-found') {
-                    errorMsg = 'No account found with this email. Please create user in Firebase Console first.';
+                    errorMsg = '❌ No account found. Please create user in Firebase Console first.';
                 } else if (err.code === 'auth/wrong-password') {
-                    errorMsg = 'Incorrect password. Please try again.';
+                    errorMsg = '❌ Incorrect password. Please try again.';
                 } else if (err.code === 'auth/invalid-email') {
-                    errorMsg = 'Invalid email address format.';
+                    errorMsg = '❌ Invalid email address format.';
                 } else if (err.code === 'auth/too-many-requests') {
-                    errorMsg = 'Too many failed attempts. Please try again later.';
+                    errorMsg = '❌ Too many failed attempts. Please try again later.';
                 } else if (err.code === 'auth/network-request-failed') {
-                    errorMsg = 'Network error. Please check your internet connection.';
+                    errorMsg = '❌ Network error. Please check your internet connection.';
                 }
 
                 showError(errorMsg);
@@ -723,10 +721,10 @@
 
             auth.sendPasswordResetEmail(email)
                 .then(() => {
-                    showSuccess(`Password reset email sent to ${email}`);
+                    showSuccess(`✅ Password reset email sent to ${email}`);
                 })
                 .catch((err) => {
-                    showError('Failed to send reset email: ' + err.message);
+                    showError('❌ Failed to send reset email: ' + err.message);
                 });
         }
 
@@ -773,9 +771,10 @@
 
             emailInput.focus();
 
-            console.log('[RND Login] ✅ Login page ready');
-            console.log('[RND Login] 📧 Email: rkv858810@gmail.com');
-            console.log('[RND Login] 🔑 Password: 123@Randigital');
+            console.log('✅ Login page ready');
+            console.log('📧 Email: rkv858810@gmail.com');
+            console.log('🔑 Password: 123@Randigital');
+            console.log('🤖 Auto-create admin enabled!');
         }
 
         if (document.readyState === 'loading') {
