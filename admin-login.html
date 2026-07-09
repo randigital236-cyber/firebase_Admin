@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RND Backup - Admin Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* ==================== ROOT VARIABLES ==================== */
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #818cf8;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --darker: #0f172a;
+            --card-bg: #1e293b;
+            --border: #334155;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --shadow: 0 8px 32px rgba(0,0,0,0.5);
+            --radius: 16px;
+            --transition: all 0.3s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--darker);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-image: radial-gradient(ellipse at top, rgba(99, 102, 241, 0.08), transparent 70%);
+            padding: 20px;
+        }
+
+        /* ==================== LOGIN CONTAINER ==================== */
+        .login-container {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 48px 40px;
+            width: 440px;
+            max-width: 100%;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            animation: slideUp 0.6s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light), var(--secondary));
+        }
+
+        /* ==================== LOGO / HEADER ==================== */
+        .login-header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        .login-header .icon {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2rem;
+            color: white;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+        }
+
+        .login-header h1 {
+            color: var(--text);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .login-header h1 span {
+            color: var(--primary);
+        }
+
+        .login-header p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+
+        .login-header .version {
+            display: inline-block;
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary-light);
+            padding: 2px 14px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-top: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        /* ==================== FORM ==================== */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: var(--darker);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            transition: var(--transition);
+            overflow: hidden;
+        }
+
+        .form-group .input-wrapper:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group .input-wrapper .icon-left {
+            padding: 0 14px;
+            color: var(--text-muted);
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .form-group .input-wrapper input {
+            flex: 1;
+            padding: 14px 14px 14px 0;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 0.95rem;
+            outline: none;
+            width: 100%;
+        }
+
+        .form-group .input-wrapper input::placeholder {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .form-group .input-wrapper .toggle-password {
+            padding: 0 14px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+
+        .form-group .input-wrapper .toggle-password:hover {
+            color: var(--text);
+        }
+
+        /* ==================== REMEMBER ME ==================== */
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .form-options .remember {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .form-options .remember input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .form-options .forgot-link {
+            color: var(--primary-light);
+            font-size: 0.85rem;
+            text-decoration: none;
+            transition: var(--transition);
+        }
+
+        .form-options .forgot-link:hover {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+
+        /* ==================== BUTTONS ==================== */
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-login:active {
+            transform: scale(0.98);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-login .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ==================== ERROR MESSAGES ==================== */
+        .error-container {
+            margin-bottom: 16px;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #fca5a5;
+            font-size: 0.9rem;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            animation: shake 0.4s ease;
+        }
+
+        .error-message.show {
+            display: flex;
+        }
+
+        .error-message i {
+            font-size: 1.1rem;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+
+        /* ==================== SUCCESS MESSAGE ==================== */
+        .success-message {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #6ee7b7;
+            font-size: 0.9rem;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .success-message.show {
+            display: flex;
+        }
+
+        /* ==================== FOOTER ==================== */
+        .login-footer {
+            text-align: center;
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .login-footer p {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        .login-footer .security-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            margin-top: 8px;
+        }
+
+        .login-footer .security-badge i {
+            color: var(--secondary);
+        }
+
+        /* ==================== RESPONSIVE ==================== */
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 32px 24px;
+            }
+            .login-header .icon {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5rem;
+            }
+            .login-header h1 {
+                font-size: 1.2rem;
+            }
+            .form-options {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .form-group .input-wrapper input {
+                font-size: 0.9rem;
+                padding: 12px 12px 12px 0;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .login-container {
+                padding: 24px 16px;
+            }
+        }
+
+        /* ==================== LOADING OVERLAY ==================== */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-overlay .spinner-large {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .loading-overlay p {
+            color: var(--text);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== LOADING OVERLAY ==================== -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner-large"></div>
+        <p>Authenticating...</p>
+    </div>
+
+    <!-- ==================== LOGIN CONTAINER ==================== -->
+    <div class="login-container">
+        
+        <!-- Header -->
+        <div class="login-header">
+            <div class="icon">
+                <i class="fas fa-shield-halved"></i>
+            </div>
+            <h1>RND <span>Backup</span></h1>
+            <p>Admin Panel • Secure Access</p>
+            <span class="version">v3.0 PRODUCTION</span>
+        </div>
+
+        <!-- Error & Success Messages -->
+        <div class="error-container">
+            <div class="error-message" id="errorMessage">
+                <i class="fas fa-circle-exclamation"></i>
+                <span id="errorText">Invalid credentials</span>
+            </div>
+        </div>
+
+        <div class="success-message" id="successMessage">
+            <i class="fas fa-check-circle"></i>
+            <span>Login successful! Redirecting...</span>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <!-- Email -->
+            <div class="form-group">
+                <label for="adminEmail"><i class="fas fa-envelope"></i> Email Address</label>
+                <div class="input-wrapper">
+                    <span class="icon-left"><i class="fas fa-envelope"></i></span>
+                    <input 
+                        type="email" 
+                        id="adminEmail" 
+                        placeholder="admin@yourdomain.com" 
+                        required 
+                        autocomplete="email"
+                        value=""
+                    />
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div class="form-group">
+                <label for="adminPassword"><i class="fas fa-lock"></i> Password</label>
+                <div class="input-wrapper">
+                    <span class="icon-left"><i class="fas fa-lock"></i></span>
+                    <input 
+                        type="password" 
+                        id="adminPassword" 
+                        placeholder="Enter your password" 
+                        required 
+                        autocomplete="current-password"
+                    />
+                    <span class="toggle-password" onclick="togglePassword()">
+                        <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Options -->
+            <div class="form-options">
+                <label class="remember">
+                    <input type="checkbox" id="rememberMe" checked />
+                    <span>Remember me</span>
+                </label>
+                <a href="#" class="forgot-link" onclick="showForgotPassword(event)">Forgot password?</a>
+            </div>
+
+            <!-- Login Button -->
+            <button type="submit" class="btn-login" id="loginBtn">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>Login</span>
+            </button>
+        </form>
+
+        <!-- Footer -->
+        <div class="login-footer">
+            <p>Secure Admin Access • Firebase Authentication</p>
+            <div class="security-badge">
+                <i class="fas fa-shield-alt"></i>
+                <span>256-bit Encrypted</span>
+                <i class="fas fa-circle" style="font-size: 4px; color: var(--border);"></i>
+                <span>Session: 24h</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ==================== FIREBASE SDK ==================== -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <!-- ==================== LOGIN SCRIPT ==================== -->
+    <script>
+        // ==================== FIREBASE CONFIG ====================
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAz-TLmOhiy-_vHHmIjW8gyIOqTR_PT9o0",
+            authDomain: "rnd2-70080.firebaseapp.com",
+            databaseURL: "https://rnd2-70080-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "rnd2-70080",
+            storageBucket: "rnd2-70080.firebasestorage.app",
+            messagingSenderId: "468625887938",
+            appId: "1:468625887938:web:5cb4ddbcf31b6fc0a4615b"
+        };
+
+        // ==================== SUPER ADMIN LIST ====================
+        const SUPER_ADMINS = [
+            'admin@rnd.com',
+            'superadmin@rnd.com',
+            'your-email@domain.com'  // ← Add your email here
+        ];
+
+        // ==================== INITIALIZE FIREBASE ====================
+        let app, auth, db;
+
+        function initFirebase() {
+            try {
+                app = firebase.initializeApp(FIREBASE_CONFIG);
+                auth = firebase.auth(app);
+                db = firebase.database(app);
+                console.log('[RND Login] Firebase initialized');
+            } catch(e) {
+                console.error('Firebase init error:', e);
+                showError('Failed to initialize Firebase. Please check your connection.');
+            }
+        }
+
+        // ==================== DOM ELEMENTS ====================
+        const emailInput = document.getElementById('adminEmail');
+        const passwordInput = document.getElementById('adminPassword');
+        const loginBtn = document.getElementById('loginBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const successMessage = document.getElementById('successMessage');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const rememberMe = document.getElementById('rememberMe');
+
+        // ==================== TOGGLE PASSWORD ====================
+        function togglePassword() {
+            const input = document.getElementById('adminPassword');
+            const icon = document.getElementById('passwordToggleIcon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        // ==================== SHOW ERROR ====================
+        function showError(message) {
+            errorText.textContent = message;
+            errorMessage.classList.add('show');
+            successMessage.classList.remove('show');
+            
+            // Auto hide after 5 seconds
+            clearTimeout(errorMessage._timeout);
+            errorMessage._timeout = setTimeout(() => {
+                errorMessage.classList.remove('show');
+            }, 5000);
+        }
+
+        // ==================== SHOW SUCCESS ====================
+        function showSuccess(message) {
+            successMessage.querySelector('span').textContent = message;
+            successMessage.classList.add('show');
+            errorMessage.classList.remove('show');
+        }
+
+        // ==================== CHECK ADMIN STATUS ====================
+        async function checkAdminStatus(uid, email) {
+            try {
+                // Check Super Admin list
+                if (SUPER_ADMINS.includes(email)) {
+                    return { isAdmin: true, isSuperAdmin: true };
+                }
+
+                // Check Firebase admins node
+                const snap = await db.ref(`admins/${uid}`).once('value');
+                if (snap.val() === true) {
+                    return { isAdmin: true, isSuperAdmin: false };
+                }
+
+                return { isAdmin: false, isSuperAdmin: false };
+            } catch(e) {
+                console.error('Admin check error:', e);
+                return { isAdmin: false, isSuperAdmin: false };
+            }
+        }
+
+        // ==================== HANDLE LOGIN ====================
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            // Validate
+            if (!email) {
+                showError('Please enter your email address');
+                return;
+            }
+            if (!password) {
+                showError('Please enter your password');
+                return;
+            }
+            if (password.length < 6) {
+                showError('Password must be at least 6 characters');
+                return;
+            }
+
+            // Show loading
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<div class="spinner"></div> Logging in...';
+            errorMessage.classList.remove('show');
+            successMessage.classList.remove('show');
+
+            try {
+                // Sign in with Firebase Auth
+                const result = await auth.signInWithEmailAndPassword(email, password);
+                const user = result.user;
+
+                if (!user) {
+                    throw new Error('Authentication failed');
+                }
+
+                // Check admin status
+                const adminStatus = await checkAdminStatus(user.uid, email);
+
+                if (!adminStatus.isAdmin && !adminStatus.isSuperAdmin) {
+                    // Not authorized - sign out
+                    await auth.signOut();
+                    showError('⛔ Unauthorized: You do not have admin access.');
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span>Login</span>';
+                    return;
+                }
+
+                // Create admin session
+                const adminSession = {
+                    uid: user.uid,
+                    email: user.email,
+                    isSuperAdmin: adminStatus.isSuperAdmin,
+                    isAdmin: adminStatus.isAdmin,
+                    loginTime: new Date().toISOString(),
+                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+                };
+
+                // Save session
+                if (rememberMe.checked) {
+                    localStorage.setItem('adminSession', JSON.stringify(adminSession));
+                } else {
+                    sessionStorage.setItem('adminSession', JSON.stringify(adminSession));
+                }
+
+                // Log successful login
+                console.log('[RND Login] Admin logged in:', email, 'SuperAdmin:', adminStatus.isSuperAdmin);
+
+                // Show success
+                showSuccess('Login successful! Redirecting to dashboard...');
+
+                // Redirect after delay
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1000);
+
+            } catch(err) {
+                console.error('Login error:', err);
+                
+                let errorMsg = 'Login failed. Please try again.';
+                
+                // Firebase error codes
+                if (err.code === 'auth/user-not-found') {
+                    errorMsg = 'No account found with this email.';
+                } else if (err.code === 'auth/wrong-password') {
+                    errorMsg = 'Incorrect password. Please try again.';
+                } else if (err.code === 'auth/invalid-email') {
+                    errorMsg = 'Invalid email address format.';
+                } else if (err.code === 'auth/too-many-requests') {
+                    errorMsg = 'Too many failed attempts. Please try again later.';
+                } else if (err.code === 'auth/network-request-failed') {
+                    errorMsg = 'Network error. Please check your internet connection.';
+                }
+
+                showError(errorMsg);
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span>Login</span>';
+            }
+        }
+
+        // ==================== FORGOT PASSWORD ====================
+        function showForgotPassword(event) {
+            event.preventDefault();
+            const email = emailInput.value.trim();
+            
+            if (!email) {
+                showError('Please enter your email address first');
+                return;
+            }
+
+            if (!confirm(`Send password reset email to ${email}?`)) return;
+
+            auth.sendPasswordResetEmail(email)
+                .then(() => {
+                    showSuccess(`Password reset email sent to ${email}`);
+                })
+                .catch((err) => {
+                    showError('Failed to send reset email: ' + err.message);
+                });
+        }
+
+        // ==================== CHECK EXISTING SESSION ====================
+        function checkExistingSession() {
+            // Check localStorage
+            let session = localStorage.getItem('adminSession');
+            if (!session) {
+                // Check sessionStorage
+                session = sessionStorage.getItem('adminSession');
+            }
+
+            if (session) {
+                try {
+                    const admin = JSON.parse(session);
+                    // Check if session is expired
+                    if (admin.expiresAt && new Date(admin.expiresAt) > new Date()) {
+                        // Valid session, redirect to dashboard
+                        window.location.href = 'index.html';
+                        return true;
+                    } else {
+                        // Session expired, clear it
+                        localStorage.removeItem('adminSession');
+                        sessionStorage.removeItem('adminSession');
+                    }
+                } catch(e) {
+                    // Invalid session, clear it
+                    localStorage.removeItem('adminSession');
+                    sessionStorage.removeItem('adminSession');
+                }
+            }
+            return false;
+        }
+
+        // ==================== AUTO LOGOUT ON TAB CLOSE ====================
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // User switched tab, but we keep session
+            }
+        });
+
+        // ==================== ENTER KEY SUPPORT ====================
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const active = document.activeElement;
+                if (active && (active.id === 'adminEmail' || active.id === 'adminPassword')) {
+                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+                }
+            }
+        });
+
+        // ==================== INITIALIZE ====================
+        function init() {
+            initFirebase();
+            
+            // Check if already logged in
+            if (checkExistingSession()) return;
+
+            // Focus on email input
+            emailInput.focus();
+
+            // Check if there's a saved email
+            const savedEmail = localStorage.getItem('savedAdminEmail');
+            if (savedEmail) {
+                emailInput.value = savedEmail;
+            }
+
+            console.log('[RND Login] Login page ready');
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+
+        // ==================== EXPOSE FUNCTIONS ====================
+        window.togglePassword = togglePassword;
+        window.handleLogin = handleLogin;
+        window.showForgotPassword = showForgotPassword;
+    </script>
+</body>
+</html>
