@@ -32,17 +32,8 @@
             max-width: 100%;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
             animation: slideUp 0.6s ease;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            position: relative;
+            overflow: hidden;
         }
 
         .login-container::before {
@@ -55,9 +46,15 @@
             background: linear-gradient(90deg, #6366f1, #818cf8, #10b981);
         }
 
-        .login-container {
-            position: relative;
-            overflow: hidden;
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .login-header {
@@ -156,7 +153,7 @@
         }
 
         .form-group .input-wrapper input::placeholder {
-            color: #94a3b8;
+            color: #64748b;
             font-size: 0.85rem;
         }
 
@@ -372,29 +369,9 @@
             font-weight: 500;
         }
 
+        /* ==================== HIDE DEMO CREDENTIALS ==================== */
         .demo-credentials {
-            background: rgba(99, 102, 241, 0.05);
-            border: 1px solid rgba(99, 102, 241, 0.1);
-            border-radius: 10px;
-            padding: 12px 16px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .demo-credentials p {
-            color: #94a3b8;
-            font-size: 0.8rem;
-            margin-bottom: 4px;
-        }
-
-        .demo-credentials .cred {
-            color: #e2e8f0;
-            font-family: monospace;
-            font-size: 0.9rem;
-        }
-
-        .demo-credentials .cred span {
-            color: #10b981;
+            display: none;
         }
 
         @media (max-width: 480px) {
@@ -438,11 +415,11 @@
             <span class="version">v3.0 PRODUCTION</span>
         </div>
 
-        <!-- Demo Credentials -->
+        <!-- Demo Credentials - HIDDEN (Only for Admin reference) -->
         <div class="demo-credentials">
-            <p>📧 Your Admin Credentials</p>
+            <p>📧 Admin Credentials</p>
             <div class="cred">
-                Email: <span>randigital236@gmail.com</span>
+                Email: <span>rkv858810@gmail.com</span>
                 &nbsp;|&nbsp;
                 Password: <span>123@Randigital</span>
             </div>
@@ -461,7 +438,7 @@
             <span>Login successful! Redirecting...</span>
         </div>
 
-        <!-- Login Form -->
+        <!-- Login Form - Email/Password NOT pre-filled -->
         <form id="loginForm" onsubmit="handleLogin(event)">
 
             <!-- Email -->
@@ -472,10 +449,9 @@
                     <input
                     type="email"
                     id="adminEmail"
-                    placeholder="admin@yourdomain.com"
+                    placeholder="Enter your admin email"
                     required
                     autocomplete="email"
-                    value="randigital236@gmail.com"
                     />
                 </div>
             </div>
@@ -491,7 +467,6 @@
                     placeholder="Enter your password"
                     required
                     autocomplete="current-password"
-                    value="123@Randigital"
                     />
                     <span class="toggle-password" onclick="togglePassword()">
                         <i class="fas fa-eye" id="passwordToggleIcon"></i>
@@ -548,12 +523,13 @@
             appId: "1:468625887938:web:5cb4ddbcf31b6fc0a4615b"
         };
 
-        // ==================== YOUR ADMIN CREDENTIALS ====================
-        // ✅ Your Email: randigital236@gmail.com
-        // ✅ Your Password: 123@Randigital
+        // ==================== YOUR NEW ADMIN CREDENTIALS ====================
+        // ✅ Email: rkv858810@gmail.com
+        // ✅ Password: 123@Randigital
 
         const SUPER_ADMINS = [
-            'randigital236@gmail.com', // ← YOUR EMAIL
+            'rkv858810@gmail.com', // ← YOUR NEW EMAIL
+            'randigital236@gmail.com',
             'admin@rnd.com',
             'superadmin@rnd.com'
         ];
@@ -567,7 +543,7 @@
                 auth = firebase.auth(app);
                 db = firebase.database(app);
                 console.log('[RND Login] Firebase initialized');
-                console.log('[RND Login] Admin Email: randigital236@gmail.com');
+                console.log('[RND Login] Admin Email: rkv858810@gmail.com');
             } catch (e) {
                 console.error('Firebase init error:', e);
                 showError('Failed to initialize Firebase. Please check your connection.');
@@ -716,7 +692,7 @@
                 let errorMsg = 'Login failed. Please try again.';
 
                 if (err.code === 'auth/user-not-found') {
-                    errorMsg = 'No account found with this email.';
+                    errorMsg = 'No account found with this email. Please create user in Firebase Console first.';
                 } else if (err.code === 'auth/wrong-password') {
                     errorMsg = 'Incorrect password. Please try again.';
                 } else if (err.code === 'auth/invalid-email') {
@@ -798,7 +774,7 @@
             emailInput.focus();
 
             console.log('[RND Login] ✅ Login page ready');
-            console.log('[RND Login] 📧 Email: randigital236@gmail.com');
+            console.log('[RND Login] 📧 Email: rkv858810@gmail.com');
             console.log('[RND Login] 🔑 Password: 123@Randigital');
         }
 
