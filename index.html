@@ -179,6 +179,12 @@
             margin-bottom: 12px;
         }
 
+        .card .card-divider {
+            border: none;
+            border-top: 1px solid #334155;
+            margin: 16px 0;
+        }
+
         /* ==================== BUTTONS ==================== */
         .btn {
             padding: 10px 22px;
@@ -654,9 +660,102 @@
                 font-size: 1.5rem;
             }
         }
+
+        /* ==================== CONFIRM DIALOG ==================== */
+        .confirm-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9998;
+        }
+
+        .confirm-overlay.active {
+            display: flex;
+        }
+
+        .confirm-dialog {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .confirm-dialog .icon {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .confirm-dialog .icon.warning {
+            color: #f59e0b;
+        }
+        .confirm-dialog .icon.danger {
+            color: #ef4444;
+        }
+        .confirm-dialog .icon.info {
+            color: #6366f1;
+        }
+
+        .confirm-dialog h3 {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .confirm-dialog p {
+            color: #94a3b8;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .confirm-dialog .btn-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .confirm-dialog .btn-group .btn {
+            min-width: 100px;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
+
+    <!-- ==================== CONFIRM DIALOG ==================== -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-dialog">
+            <div class="icon" id="confirmIcon">⚠️</div>
+            <h3 id="confirmTitle">Are you sure?</h3>
+            <p id="confirmMessage">This action cannot be undone.</p>
+            <div class="btn-group">
+                <button class="btn btn-outline" onclick="closeConfirm()">Cancel</button>
+                <button class="btn btn-danger" id="confirmBtn" onclick="executeConfirmed()">Confirm</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ==================== NOTIFICATION ==================== -->
     <div class="notification-toast" id="notification"></div>
@@ -666,7 +765,7 @@
         <h1>
             <i class="fas fa-shield-halved" style="color:#6366f1;"></i>
             RND <span>Backup</span>
-            <span class="badge">v2.0</span>
+            <span class="badge">v2.1</span>
         </h1>
         <div class="user">
             <span class="email" id="adminEmailDisplay">admin@rnd.com</span>
@@ -708,8 +807,11 @@
         <div class="card">
             <div class="card-title"><i class="fas fa-bolt"></i> Quick Actions</div>
             <div class="flex">
-                <button class="btn btn-success" onclick="fullSync()">
+                <button class="btn btn-success" onclick="confirmBackup()">
                     <i class="fas fa-rotate"></i> Backup Now
+                </button>
+                <button class="btn btn-danger" onclick="confirmRestoreAll()">
+                    <i class="fas fa-database"></i> Restore All Database
                 </button>
                 <button class="btn btn-primary" onclick="checkBackupStatus()">
                     <i class="fas fa-heart-pulse"></i> Check Status
@@ -739,7 +841,7 @@
             </div>
             <div class="search-box">
                 <input type="text" id="restoreUid" placeholder="Enter UID to restore..." />
-                <button class="btn btn-danger" onclick="restoreUser()">
+                <button class="btn btn-danger" onclick="confirmRestoreUser()">
                     <i class="fas fa-rotate-left"></i> Restore User
                 </button>
             </div>
