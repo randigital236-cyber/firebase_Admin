@@ -1,9 +1,4 @@
 // ==================== RND BACKUP SYSTEM - PRODUCTION READY ====================
-// ✅ No Auto Backup
-// ✅ No Auto Restore
-// ✅ No Auto Delete
-// ✅ Only Admin Button Actions
-
 // ==================== FIREBASE CONFIG ====================
 const MAIN_CONFIG = {
     apiKey: "AIzaSyAz-TLmOhiy-_vHHmIjW8gyIOqTR_PT9o0",
@@ -28,6 +23,7 @@ const BACKUP_PATHS = [
 let mainApp, backupApp, mainDB, backupDB, auth;
 let currentAdmin = null;
 let pendingAction = null;
+let isSignup = false;
 
 // ==================== INIT ====================
 function initFirebase() {
@@ -41,36 +37,208 @@ function initFirebase() {
     backupDB = firebase.database(backupApp);
     auth = firebase.auth(mainApp);
     console.log('✅ Firebase initialized');
+    
+    // Check session
+    checkSession();
 }
 
+// ==================== UI TOGGLE ====================
+function showLogin() {
+    document.getElementById('signupForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('loginError').classList.remove('show');
+    document.getElementById('loginSuccess').classList.remove('show');
+}
+
+function showSignup() {
+    document.getElementById('signupForm').style.display = 'block';
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('loginError').classList.remove('show');
+    document.getElementById('loginSuccess').classList.remove('show');
+}
+
+// ==================== SIGNUP ====================
+async function handleSignup() {
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value.trim();
+    const errorEl = document.getElementById('loginError');
+    const successEl = document.getElementById('loginSuccess');
+    const btn = document.getElementById('signupBtn');
+
+    if (!name) {
+        errorEl.textContent = '❌ Please enter your full name';
+        errorEl.classList.add('show');
+        return;
+    }
+    if (!email) {
+        errorEl.textContent = '❌ Please enter your email';
+        errorEl.classList.add('show');
+        return;
+    }
+    if (!password || password.length < 6) {
+        errorEl.textContent = '❌ Password must be at least 6 characters';
+        errorEl.classList.add('show');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Creating...';
+    errorEl.classList.remove('show');
+    successEl.classList.remove('show');
+
+    try {
+        const result = await auth.createUserWithEmailAndPassword(email, password);
+        const user = result.user;
+
+        await backupDB.ref('admins/' + user.uid).set({
+            name: name,
+            email: email,
+            role: 'admin',
+            createdAt: new Date().toISOString()
+        });
+
+        await mainDB.ref('admins/' + user.uid).set({
+            name: name,
+            email: email,
+            role: 'admin',
+            createdAt: new Date().toISOString()
+        });
+
+        console.log('✅ Admin created:', email);
+        successEl.textContent = '✅ Admin account created! Please login.';
+        successEl.classList.add('show');
+        
+        await auth.signOut();
+        
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin Account';
+            document.getElementById('signupForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('loginEmail').value = email;
+            successEl.classList.remove('show');
+            showNotification('Admin created! Please login.', 'success');
+        }, 2000);
+
+    } catch(err) {
+        console.error('Signup error:', err);
+        let msg = '❌ Signup failed. Please try again.';
+        if (err.code === 'auth/email-already-in-use') {
+            msg = '❌ Email already registered. Please login.';
+        } else if (err.code === 'auth/weak-password') {
+            msg = '❌ Password too weak.';
+        }
+        errorEl.textContent = msg;
+        errorEl.classList.add('show');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin Account';
+    }
+}
+
+// ==================== LOGIN ====================
+async function handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    const errorEl = document.getElementById('loginError');
+    const successEl = document.getElementById('loginSuccess');
+    const btn = document.getElementById('loginBtn');
+
+    if (!email) {
+        errorEl.textContent = '❌ Please enter your email';
+        errorEl.classList.add('show');
+        return;
+    }
+    if (!password) {
+        errorEl.textContent = '❌ Please enter your password';
+        errorEl.classList.add('show');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Logging in...';
+    errorEl.classList.remove('show');
+    successEl.classList.remove('show');
+
+    try {
+        const result = await auth.signInWithEmailAndPassword(email, password);
+        const user = result.user;
+
+        // Check admin
+        const snap = await backupDB.ref('admins/' + user.uid).once('value');
+        if (!snap.exists()) {
+            await auth.signOut();
+            errorEl.textContent = '⛔ Unauthorized: Not an admin';
+            errorEl.classList.add('show');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+            return;
+        }
+
+        const adminSession = {
+            uid: user.uid,
+            email: user.email,
+            isAdmin: true,
+            loginTime: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        };
+        localStorage.setItem('adminSession', JSON.stringify(adminSession));
+
+        console.log('✅ Admin logged in:', email);
+        successEl.textContent = '✅ Login successful!';
+        successEl.classList.add('show');
+
+        setTimeout(() => {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('dashboardPage').style.display = 'block';
+            loadDashboard();
+        }, 1000);
+
+    } catch(err) {
+        console.error('Login error:', err);
+        let msg = '❌ Login failed. Please try again.';
+        if (err.code === 'auth/user-not-found') {
+            msg = '❌ No account found. Please sign up first.';
+        } else if (err.code === 'auth/wrong-password') {
+            msg = '❌ Incorrect password.';
+        } else if (err.code === 'auth/too-many-requests') {
+            msg = '❌ Too many attempts. Try again later.';
+        }
+        errorEl.textContent = msg;
+        errorEl.classList.add('show');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+    }
+}
+
+// ==================== SESSION CHECK ====================
 function checkSession() {
     const session = localStorage.getItem('adminSession');
-    if (!session) {
-        window.location.href = 'login.html';
-        return false;
-    }
+    if (!session) return;
+
     try {
         const admin = JSON.parse(session);
-        if (admin.expiresAt && new Date(admin.expiresAt) < new Date()) {
-            localStorage.removeItem('adminSession');
-            window.location.href = 'login.html';
-            return false;
+        if (admin.expiresAt && new Date(admin.expiresAt) > new Date()) {
+            currentAdmin = admin;
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('dashboardPage').style.display = 'block';
+            document.getElementById('adminEmail').textContent = admin.email;
+            document.getElementById('adminAvatar').textContent = admin.email.charAt(0).toUpperCase();
+            loadDashboard();
+            return;
         }
-        currentAdmin = admin;
-        document.getElementById('adminEmail').textContent = admin.email;
-        document.getElementById('adminAvatar').textContent = admin.email.charAt(0).toUpperCase();
-        return true;
-    } catch(e) {
-        window.location.href = 'login.html';
-        return false;
-    }
+    } catch(e) {}
 }
 
+// ==================== LOGOUT ====================
 function adminLogout() {
     if (!confirm('Logout?')) return;
     localStorage.removeItem('adminSession');
     auth.signOut();
-    window.location.href = 'login.html';
+    document.getElementById('dashboardPage').style.display = 'none';
+    document.getElementById('loginPage').style.display = 'block';
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('signupForm').style.display = 'none';
 }
 
 // ==================== NOTIFICATION ====================
@@ -124,10 +292,10 @@ function renderLogs() {
     logs.forEach(log => {
         const cls = log.status === 'success' ? 'success' : log.status === 'failed' ? 'danger' : 'warning';
         html += `
-            <div style="padding:10px 16px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div class="log-entry">
                 <span><strong>${log.action}</strong> ${log.details ? '<span style="color:#94a3b8;font-size:0.8rem;">'+log.details+'</span>' : ''}</span>
                 <span><span class="tag tag-${cls}">${log.status}</span></span>
-                <span style="color:#94a3b8;font-size:0.75rem;">${formatDate(log.time)}</span>
+                <span class="log-time">${formatDate(log.time)}</span>
             </div>
         `;
     });
@@ -159,6 +327,16 @@ function executeConfirmed() {
     }
 }
 
+// ==================== DASHBOARD ====================
+async function loadDashboard() {
+    await checkStatus();
+    renderLogs();
+    addLog('System Started', 'success', 'v1.0');
+    console.log('✅ RND Backup System Ready');
+    console.log('📧 Admin:', currentAdmin?.email);
+    console.log('📊 Backup Paths:', BACKUP_PATHS);
+}
+
 // ==================== CHECK STATUS ====================
 async function checkStatus() {
     showNotification('Checking status...', 'info');
@@ -187,7 +365,7 @@ async function checkStatus() {
     }
 }
 
-// ==================== BACKUP ALL DATA ====================
+// ==================== BACKUP ====================
 function confirmBackup() {
     showConfirm(
         '📦 Backup All Data?',
@@ -205,7 +383,7 @@ async function backupAllData() {
     const progressText = document.getElementById('progressText');
 
     btn.disabled = true;
-    btn.innerHTML = '<div class="spinner"></div> Backing up...';
+    btn.innerHTML = '<div class="spinner-sm"></div> Backing up...';
     progressDiv.classList.remove('hidden');
     progressBar.style.width = '0%';
 
@@ -252,7 +430,7 @@ async function backupAllData() {
     }
 }
 
-// ==================== RESTORE ONE USER ====================
+// ==================== RESTORE USER ====================
 function confirmRestoreUser() {
     const uid = document.getElementById('restoreUid').value.trim();
     if (!uid) {
@@ -270,7 +448,7 @@ function confirmRestoreUser() {
 
 async function restoreUser(uid) {
     const container = document.getElementById('restoreResult');
-    container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner"></div><p style="margin-top:8px;color:#94a3b8;">Restoring user...</p></div>';
+    container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner-sm"></div><p style="margin-top:8px;color:#94a3b8;">Restoring user...</p></div>';
 
     try {
         const backupSnap = await backupDB.ref('users/' + uid).once('value');
@@ -311,7 +489,7 @@ async function restoreUser(uid) {
     }
 }
 
-// ==================== RESTORE FULL DATABASE ====================
+// ==================== RESTORE FULL ====================
 function confirmRestoreAll() {
     showConfirm(
         '🚨 Restore Full Database?',
@@ -330,12 +508,11 @@ async function restoreAllDatabase() {
 
     if (!btn) return;
     btn.disabled = true;
-    btn.innerHTML = '<div class="spinner"></div> Restoring...';
+    btn.innerHTML = '<div class="spinner-sm"></div> Restoring...';
     progressDiv.classList.remove('hidden');
     progressBar.style.width = '0%';
 
     try {
-        // Verify backup has data
         const check = await backupDB.ref('users').once('value');
         if (!check.exists()) {
             showNotification('❌ No data in Backup Firebase!', 'error');
@@ -387,46 +564,16 @@ async function restoreAllDatabase() {
     }
 }
 
-// ==================== AUTH LISTENER ====================
-function setupAuthListener() {
-    auth.onAuthStateChanged((user) => {
-        if (!user) {
-            if (localStorage.getItem('adminSession') && !window.location.pathname.includes('login.html')) {
-                localStorage.removeItem('adminSession');
-                window.location.href = 'login.html';
-            }
-        } else {
-            console.log('✅ Auth state: User logged in');
+// ==================== ENTER KEY ====================
+document.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        if (document.getElementById('loginForm').style.display !== 'none') {
+            handleLogin();
+        } else if (document.getElementById('signupForm').style.display !== 'none') {
+            handleSignup();
         }
-    });
-}
-
-// ==================== KEYBOARD SHORTCUTS ====================
-function setupKeyboardShortcuts() {
-    const input = document.getElementById('restoreUid');
-    if (input) {
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') confirmRestoreUser();
-        });
     }
-}
+});
 
 // ==================== INIT ====================
-function init() {
-    if (!checkSession()) return;
-    initFirebase();
-    setupAuthListener();
-    checkStatus();
-    renderLogs();
-    setupKeyboardShortcuts();
-    addLog('System Started', 'success', 'v1.0');
-    console.log('✅ RND Backup System Ready');
-    console.log('📧 Admin:', currentAdmin?.email);
-    console.log('📊 Backup Paths:', BACKUP_PATHS);
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+initFirebase();
