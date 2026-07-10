@@ -3,266 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RND Backup - Admin Dashboard</title>
+    <title>RND Backup - Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --secondary: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --info: #3b82f6;
-            --dark: #1e293b;
-            --darker: #0f172a;
-            --card-bg: #1e293b;
-            --border: #334155;
-            --text: #e2e8f0;
-            --text-muted: #94a3b8;
-            --radius: 16px;
-            --shadow: 0 8px 32px rgba(0,0,0,0.4);
-            --transition: all 0.3s ease;
+        /* ==================== RESET & BASE ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--darker);
-            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
             min-height: 100vh;
         }
 
-        /* ========== SIDEBAR ========== */
-        .sidebar {
-            position: fixed;
-            left: 0;
+        /* ==================== HEADER ==================== */
+        .header {
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            position: sticky;
             top: 0;
-            width: 260px;
-            height: 100vh;
-            background: var(--dark);
-            border-right: 1px solid var(--border);
-            z-index: 1000;
-            transition: transform 0.3s ease;
-            overflow-y: auto;
+            z-index: 100;
         }
 
-        .sidebar-header {
-            padding: 20px;
-            border-bottom: 1px solid var(--border);
-            text-align: center;
-            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+        .header h1 {
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .sidebar-header h2 { color: white; font-size: 1.2rem; }
-        .sidebar-header p { color: rgba(255,255,255,0.7); font-size: 0.7rem; }
-        .sidebar-header .version {
-            background: rgba(255,255,255,0.15);
+        .header h1 span {
+            color: #6366f1;
+        }
+
+        .header h1 .badge {
+            font-size: 0.6rem;
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
             padding: 2px 12px;
             border-radius: 20px;
-            font-size: 0.6rem;
-            color: white;
-            display: inline-block;
-            margin-top: 4px;
+            font-weight: 400;
         }
 
-        .admin-profile {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
+        .header .user {
             display: flex;
             align-items: center;
             gap: 12px;
         }
 
-        .admin-profile .avatar {
-            width: 40px;
-            height: 40px;
+        .header .user .email {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .header .user .avatar {
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
-            background: var(--primary);
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
+            font-size: 0.9rem;
             color: white;
-            font-size: 1.1rem;
         }
 
-        .admin-profile .info { flex: 1; }
-        .admin-profile .info .name { font-size: 0.9rem; font-weight: 600; }
-        .admin-profile .info .role { font-size: 0.7rem; color: var(--text-muted); }
-        .admin-profile .info .role .super { color: var(--warning); }
-
-        .admin-profile .logout-btn {
+        .header .user .logout-btn {
             background: none;
             border: none;
-            color: var(--text-muted);
+            color: #94a3b8;
             cursor: pointer;
             font-size: 1rem;
             padding: 8px;
             border-radius: 8px;
-            transition: var(--transition);
+            transition: all 0.3s;
         }
-        .admin-profile .logout-btn:hover {
-            color: var(--danger);
+
+        .header .user .logout-btn:hover {
+            color: #ef4444;
             background: rgba(239, 68, 68, 0.1);
         }
 
-        .nav-menu { padding: 12px 10px; }
-        .nav-section-title {
-            color: var(--text-muted);
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 12px 16px 8px;
-            font-weight: 700;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 16px;
-            margin-bottom: 2px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: var(--transition);
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-        .nav-item:hover { background: rgba(99, 102, 241, 0.1); color: var(--text); }
-        .nav-item.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-        }
-        .nav-item i { width: 24px; margin-right: 12px; font-size: 1rem; text-align: center; }
-        .nav-item .badge {
-            margin-left: auto;
-            background: var(--danger);
-            color: white;
-            font-size: 0.65rem;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-weight: 600;
-        }
-        .nav-item .badge.success { background: var(--secondary); }
-        .nav-item .badge.warning { background: var(--warning); }
-
-        /* ========== MAIN ========== */
-        .main-content {
-            margin-left: 260px;
-            padding: 24px 32px;
-            min-height: 100vh;
-        }
-
-        .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 28px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .top-bar .left h1 { font-size: 1.5rem; font-weight: 700; }
-        .top-bar .left h1 i { color: var(--primary); margin-right: 10px; }
-
-        .top-bar .right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .status-pill {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: var(--card-bg);
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            font-size: 0.8rem;
-        }
-
         .status-dot {
+            display: inline-block;
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            animation: pulse 2s infinite;
+            margin-right: 6px;
         }
-        .status-dot.online { background: var(--secondary); box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
-        .status-dot.offline { background: var(--danger); box-shadow: 0 0 12px rgba(239, 68, 68, 0.4); animation: none; }
+        .status-dot.online { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+        .status-dot.offline { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        /* ==================== CONTAINER ==================== */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
         }
 
-        /* ========== CARDS ========== */
-        .card-grid {
+        /* ==================== STATS ==================== */
+        .stats {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 16px;
-            margin-bottom: 28px;
+            margin-bottom: 24px;
         }
 
         .stat-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px 24px;
-            position: relative;
-            overflow: hidden;
-            transition: var(--transition);
-        }
-        .stat-card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: var(--shadow); }
-        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px; }
-        .stat-card.primary::before { background: var(--primary); }
-        .stat-card.success::before { background: var(--secondary); }
-        .stat-card.danger::before { background: var(--danger); }
-        .stat-card.warning::before { background: var(--warning); }
-        .stat-card.info::before { background: var(--info); }
-
-        .stat-card .icon {
-            width: 44px;
-            height: 44px;
+            background: #1e293b;
+            border: 1px solid #334155;
             border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
         }
-        .stat-card.primary .icon { background: rgba(99, 102, 241, 0.15); color: var(--primary); }
-        .stat-card.success .icon { background: rgba(16, 185, 129, 0.15); color: var(--secondary); }
-        .stat-card.danger .icon { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
-        .stat-card.warning .icon { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
-        .stat-card.info .icon { background: rgba(59, 130, 246, 0.15); color: var(--info); }
 
-        .stat-card .value { font-size: 1.8rem; font-weight: 700; margin-top: 8px; }
-        .stat-card .label { color: var(--text-muted); font-size: 0.8rem; }
+        .stat-card:hover {
+            border-color: #6366f1;
+            transform: translateY(-2px);
+        }
 
-        /* ========== SECTION ========== */
-        .section {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
+        .stat-card .num {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #6366f1;
+            line-height: 1.2;
+        }
+
+        .stat-card .label {
+            color: #94a3b8;
+            font-size: 0.8rem;
+            margin-top: 4px;
+        }
+
+        .stat-card .num.danger { color: #ef4444; }
+        .stat-card .num.success { color: #10b981; }
+        .stat-card .num.warning { color: #f59e0b; }
+
+        /* ==================== CARDS ==================== */
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
             padding: 24px;
             margin-bottom: 24px;
         }
 
-        .section-header {
+        .card .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
         }
-        .section-header h2 { font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
-        .section-header h2 i { color: var(--primary); }
 
-        /* ========== BUTTONS ========== */
+        .card .card-title i {
+            color: #6366f1;
+        }
+
+        .card .card-subtitle {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+
+        /* ==================== BUTTONS ==================== */
         .btn {
             padding: 10px 22px;
             border: none;
@@ -270,86 +187,118 @@
             cursor: pointer;
             font-size: 0.85rem;
             font-weight: 600;
-            transition: var(--transition);
+            transition: all 0.3s;
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            text-decoration: none;
         }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3); }
-        .btn-success { background: var(--secondary); color: white; }
-        .btn-success:hover { background: #059669; box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3); }
-        .btn-danger { background: var(--danger); color: white; }
-        .btn-danger:hover { background: #dc2626; box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3); }
-        .btn-warning { background: var(--warning); color: white; }
-        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-        .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
-        .btn-sm { padding: 6px 14px; font-size: 0.75rem; border-radius: 8px; }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
 
-        /* ========== SEARCH ========== */
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #059669;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-primary {
+            background: #6366f1;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #4f46e5;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .btn-warning:hover {
+            background: #d97706;
+            box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+        }
+        .btn-outline:hover {
+            border-color: #6366f1;
+            color: #6366f1;
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .btn-sm {
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            border-radius: 8px;
+        }
+
+        .btn-lg {
+            padding: 14px 32px;
+            font-size: 1rem;
+        }
+
+        .flex {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* ==================== SEARCH BOX ==================== */
         .search-box {
             display: flex;
             gap: 12px;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
             flex-wrap: wrap;
         }
+
         .search-box input {
             flex: 1;
-            min-width: 220px;
-            padding: 12px 18px;
-            background: var(--darker);
-            border: 1px solid var(--border);
+            min-width: 200px;
+            padding: 12px 16px;
+            background: #0f172a;
+            border: 1px solid #334155;
             border-radius: 10px;
-            color: var(--text);
+            color: #e2e8f0;
             font-size: 0.9rem;
-            transition: var(--transition);
-        }
-        .search-box input:focus {
             outline: none;
-            border-color: var(--primary);
+            transition: all 0.3s;
+        }
+
+        .search-box input:focus {
+            border-color: #6366f1;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
-        /* ========== TABLE ========== */
-        .table-responsive { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
-        .data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        .data-table thead { background: var(--darker); }
-        .data-table th {
-            padding: 14px 18px;
-            text-align: left;
-            color: var(--text-muted);
-            font-weight: 600;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid var(--border);
+        .search-box input::placeholder {
+            color: #64748b;
         }
-        .data-table td {
-            padding: 14px 18px;
-            border-bottom: 1px solid var(--border);
-            vertical-align: middle;
-        }
-        .data-table tr:last-child td { border-bottom: none; }
-        .data-table tr:hover { background: rgba(99, 102, 241, 0.03); }
 
-        /* ========== TAGS ========== */
-        .tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 14px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .tag-success { background: rgba(16, 185, 129, 0.15); color: var(--secondary); }
-        .tag-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
-        .tag-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
-        .tag-info { background: rgba(59, 130, 246, 0.15); color: var(--info); }
-
-        /* ========== ALERTS ========== */
+        /* ==================== ALERTS ==================== */
         .alert {
             padding: 16px 20px;
             border-radius: 12px;
@@ -357,68 +306,114 @@
             display: flex;
             align-items: flex-start;
             gap: 12px;
+            animation: slideIn 0.3s ease;
         }
-        .alert-danger { background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); color: #fca5a5; }
-        .alert-success { background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); color: #6ee7b7; }
-        .alert-warning { background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); color: #fcd34d; }
 
-        /* ========== LOGS ========== */
-        .log-entry {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.85rem;
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
-        .log-entry:last-child { border-bottom: none; }
-        .log-time { color: var(--text-muted); font-size: 0.75rem; min-width: 150px; font-family: monospace; }
-        .log-badge {
-            padding: 3px 12px;
-            border-radius: 6px;
-            font-size: 0.65rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        .log-badge.success { background: rgba(16, 185, 129, 0.15); color: var(--secondary); }
-        .log-badge.failed { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
-        .log-badge.warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
 
-        /* ========== COMPARE ========== */
-        .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .compare-column {
-            background: var(--darker);
-            border-radius: 12px;
-            padding: 16px;
-            border: 1px solid var(--border);
+        .alert i {
+            font-size: 1.2rem;
+            margin-top: 2px;
         }
-        .compare-column h4 { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-        .compare-column.main h4 { color: var(--primary); }
-        .compare-column.backup h4 { color: var(--secondary); }
-        .compare-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(51, 65, 85, 0.3);
-            font-size: 0.85rem;
-        }
-        .compare-row:last-child { border-bottom: none; }
-        .compare-row.mismatch {
+
+        .alert-danger {
             background: rgba(239, 68, 68, 0.08);
-            margin: 0 -16px;
-            padding: 8px 16px;
-            border-left: 3px solid var(--danger);
-            border-radius: 4px;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
         }
-        .compare-row .label { color: var(--text-muted); }
-        .compare-row .value { font-weight: 600; font-family: monospace; }
 
-        /* ========== EMPTY STATE ========== */
-        .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
-        .empty-state i { font-size: 3rem; margin-bottom: 16px; opacity: 0.3; }
-        .empty-state h3 { color: var(--text); margin-bottom: 8px; }
+        .alert-success {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+        }
 
-        /* ========== SPINNER ========== */
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+        }
+
+        /* ==================== TABLE ==================== */
+        .table-responsive {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+
+        .table-responsive table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .table-responsive th {
+            background: #0f172a;
+            padding: 12px 16px;
+            text-align: left;
+            color: #94a3b8;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .table-responsive td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #334155;
+            vertical-align: middle;
+        }
+
+        .table-responsive tr:last-child td {
+            border-bottom: none;
+        }
+
+        .table-responsive tr:hover {
+            background: rgba(99, 102, 241, 0.03);
+        }
+
+        /* ==================== TAGS ==================== */
+        .tag {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .tag-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+        .tag-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+        .tag-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+        .tag-info {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        /* ==================== SPINNER ==================== */
         .spinner {
             width: 20px;
             height: 20px;
@@ -428,9 +423,129 @@
             animation: spin 0.8s linear infinite;
             display: inline-block;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ========== NOTIFICATION ========== */
+        .spinner-sm {
+            width: 14px;
+            height: 14px;
+            border-width: 2px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ==================== PROGRESS ==================== */
+        .progress-container {
+            margin: 12px 0;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #0f172a;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6366f1, #818cf8);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 6px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        .progress-text .highlight {
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+
+        /* ==================== EMPTY STATE ==================== */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            color: #e2e8f0;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+        }
+
+        /* ==================== LOG ENTRY ==================== */
+        .log-entry {
+            padding: 10px 16px;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-entry .log-time {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+
+        .log-entry .log-badge {
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .log-entry .log-badge.success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+
+        .log-entry .log-badge.failed {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+
+        .log-entry .log-badge.warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+
+        .log-entry .log-badge.info {
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+        }
+
+        /* ==================== HIDDEN ==================== */
+        .hidden {
+            display: none !important;
+        }
+
+        /* ==================== NOTIFICATION TOAST ==================== */
         .notification-toast {
             position: fixed;
             top: 24px;
@@ -439,371 +554,233 @@
             border-radius: 12px;
             color: white;
             font-weight: 600;
-            z-index: 3000;
+            z-index: 9999;
             transform: translateX(120%);
-            transition: transform 0.4s ease;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             max-width: 420px;
-            box-shadow: 0 12px 48px rgba(0,0,0,0.5);
-        }
-        .notification-toast.show { transform: translateX(0); }
-        .notification-toast.success { background: var(--secondary); }
-        .notification-toast.error { background: var(--danger); }
-        .notification-toast.warning { background: var(--warning); }
-
-        /* ========== PAGE SECTIONS ========== */
-        .page-section { display: none; animation: fadeIn 0.3s ease; }
-        .page-section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* ========== RESPONSIVE ========== */
-        .menu-toggle {
-            display: none;
-            position: fixed;
-            top: 16px;
-            left: 16px;
-            z-index: 1100;
-            background: var(--primary);
-            color: white;
-            border: none;
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 1.2rem;
-            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
         }
 
-        .mobile-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 999;
+        .notification-toast.show {
+            transform: translateX(0);
         }
-        .mobile-overlay.active { display: block; }
 
-        @media (max-width: 992px) { .compare-grid { grid-template-columns: 1fr; } }
+        .notification-toast.success {
+            background: #10b981;
+        }
+        .notification-toast.error {
+            background: #ef4444;
+        }
+        .notification-toast.warning {
+            background: #f59e0b;
+        }
+        .notification-toast.info {
+            background: #3b82f6;
+        }
 
+        /* ==================== RESPONSIVE ==================== */
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); }
-            .sidebar.open { transform: translateX(0); }
-            .main-content { margin-left: 0; padding: 16px; padding-top: 70px; }
-            .menu-toggle { display: flex; align-items: center; justify-content: center; }
-            .mobile-overlay.active { display: block; }
-            .card-grid { grid-template-columns: 1fr 1fr; }
-            .top-bar { flex-direction: column; align-items: flex-start; }
-            .top-bar .right { width: 100%; }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 12px 16px;
+            }
+
+            .header .user {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .stats {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+
+            .container {
+                padding: 16px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .search-box {
+                flex-direction: column;
+            }
+
+            .flex {
+                flex-direction: column;
+            }
+
+            .flex .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .log-entry {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            .table-responsive {
+                font-size: 0.8rem;
+            }
+
+            .table-responsive th,
+            .table-responsive td {
+                padding: 8px 10px;
+            }
+
+            .notification-toast {
+                top: 12px;
+                right: 12px;
+                left: 12px;
+                max-width: none;
+                font-size: 0.9rem;
+            }
         }
 
         @media (max-width: 480px) {
-            .card-grid { grid-template-columns: 1fr; }
-            .top-bar .right { flex-direction: column; align-items: stretch; }
-            .search-box { flex-direction: column; }
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1rem;
+            }
+
+            .stat-card .num {
+                font-size: 1.5rem;
+            }
         }
     </style>
 </head>
 <body>
 
-    <div id="loadingState" class="page-loading" style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:20px;">
-        <div class="spinner" style="width:48px;height:48px;"></div>
-        <p>Loading Admin Panel...</p>
-    </div>
-
-    <div id="mainContent" style="display:none;">
-
-        <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
-        <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-
-        <!-- SIDEBAR -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <h2><i class="fas fa-shield-halved"></i> RND Backup</h2>
-                <p>Admin Backup Manager v3.0</p>
-                <span class="version">PRODUCTION READY</span>
-            </div>
-
-            <div class="admin-profile">
-                <div class="avatar" id="adminAvatar">A</div>
-                <div class="info">
-                    <div class="name" id="adminName">Admin</div>
-                    <div class="role" id="adminRole"><span class="super">★ Super Admin</span></div>
-                </div>
-                <button class="logout-btn" onclick="adminLogout()" title="Logout">
-                    <i class="fas fa-sign-out-alt"></i>
-                </button>
-            </div>
-
-            <nav class="nav-menu">
-                <div class="nav-section-title">Main</div>
-                <a class="nav-item active" onclick="showSection('dashboard')"><i class="fas fa-chart-line"></i> Dashboard</a>
-                <a class="nav-item" onclick="showSection('search')"><i class="fas fa-search"></i> Search User</a>
-                <a class="nav-item" onclick="showSection('compare')"><i class="fas fa-code-compare"></i> Compare Data</a>
-
-                <div class="nav-section-title" style="margin-top:12px;">Recovery</div>
-                <a class="nav-item" onclick="showSection('sync')"><i class="fas fa-rotate"></i> Sync User</a>
-                <a class="nav-item" onclick="showSection('restore')"><i class="fas fa-rotate-left"></i> Restore User</a>
-                <a class="nav-item" onclick="showSection('restore-all')">
-                    <i class="fas fa-database"></i> Restore All
-                    <span class="badge danger" id="restoreAllBadge">LOCKED</span>
-                </a>
-                <a class="nav-item" onclick="showSection('deleted')">
-                    <i class="fas fa-trash-can"></i> Deleted Users
-                    <span class="badge danger" id="deletedBadge">0</span>
-                </a>
-
-                <div class="nav-section-title" style="margin-top:12px;">System</div>
-                <a class="nav-item" onclick="showSection('status')"><i class="fas fa-heart-pulse"></i> Backup Status</a>
-                <a class="nav-item" onclick="showSection('health')">
-                    <i class="fas fa-stethoscope"></i> Health Check
-                    <span class="badge success" id="healthBadge">OK</span>
-                </a>
-                <a class="nav-item" onclick="showSection('logs')">
-                    <i class="fas fa-clock-rotate-left"></i> Activity Log
-                    <span class="badge info" id="logBadge">0</span>
-                </a>
-                <a class="nav-item" onclick="showSection('download')"><i class="fas fa-download"></i> Download Backup</a>
-                <a class="nav-item" onclick="showSection('settings')"><i class="fas fa-gear"></i> Settings</a>
-            </nav>
-        </aside>
-
-        <!-- MAIN CONTENT -->
-        <main class="main-content">
-
-            <!-- DASHBOARD -->
-            <div id="dashboard" class="page-section active">
-                <div class="top-bar">
-                    <div class="left"><h1><i class="fas fa-chart-line"></i> Dashboard</h1></div>
-                    <div class="right">
-                        <div class="status-pill"><span class="status-dot online" id="mainStatusDot"></span> Main Firebase</div>
-                        <div class="status-pill"><span class="status-dot online" id="backupStatusDot"></span> Backup Firebase</div>
-                    </div>
-                </div>
-
-                <div id="deletedAlertContainer"></div>
-                <div id="healthAlertContainer"></div>
-
-                <div class="card-grid">
-                    <div class="stat-card primary"><div class="icon"><i class="fas fa-users"></i></div><div class="value" id="totalUsers">0</div><div class="label">Total Users</div></div>
-                    <div class="stat-card success"><div class="icon"><i class="fas fa-user-check"></i></div><div class="value" id="activeUsers">0</div><div class="label">Active Users</div></div>
-                    <div class="stat-card info"><div class="icon"><i class="fas fa-clock"></i></div><div class="value" id="lastSync">--</div><div class="label">Last Sync Time</div></div>
-                    <div class="stat-card warning"><div class="icon"><i class="fas fa-database"></i></div><div class="value" id="lastBackup">--</div><div class="label">Last Backup Time</div></div>
-                    <div class="stat-card danger"><div class="icon"><i class="fas fa-triangle-exclamation"></i></div><div class="value" id="failedSync">0</div><div class="label">Failed Sync</div></div>
-                    <div class="stat-card danger"><div class="icon"><i class="fas fa-user-xmark"></i></div><div class="value" id="deletedUsersCount">0</div><div class="label">Deleted Users</div></div>
-                </div>
-
-                <div class="section">
-                    <div class="section-header">
-                        <h2><i class="fas fa-bolt"></i> Quick Actions</h2>
-                    </div>
-                    <div style="display:flex;gap:12px;flex-wrap:wrap;">
-                        <button class="btn btn-success" onclick="triggerFullSync()"><i class="fas fa-rotate"></i> Full Sync</button>
-                        <button class="btn btn-danger" onclick="showSection('restore-all')"><i class="fas fa-database"></i> Restore All</button>
-                        <button class="btn btn-primary" onclick="showSection('health')"><i class="fas fa-stethoscope"></i> Health Check</button>
-                        <button class="btn btn-outline" onclick="showSection('logs')"><i class="fas fa-clock-rotate-left"></i> View Logs</button>
-                    </div>
-                </div>
-
-                <div class="section">
-                    <div class="section-header">
-                        <h2><i class="fas fa-history"></i> Recent Activity</h2>
-                    </div>
-                    <div id="recentActivity"></div>
-                </div>
-            </div>
-
-            <!-- SEARCH -->
-            <div id="search" class="page-section">
-                <div class="top-bar"><div class="left"><h1><i class="fas fa-search"></i> Search User</h1></div></div>
-                <div class="section">
-                    <div class="search-box">
-                        <input type="text" id="searchInput" placeholder="Enter UID, Email, or Name..." />
-                        <button class="btn btn-primary" onclick="searchUser()"><i class="fas fa-search"></i> Search</button>
-                        <button class="btn btn-outline" onclick="document.getElementById('searchInput').value='';document.getElementById('searchResults').innerHTML='';"><i class="fas fa-times"></i> Clear</button>
-                    </div>
-                    <div id="searchResults"></div>
-                </div>
-            </div>
-
-            <!-- COMPARE -->
-            <div id="compare" class="page-section">
-                <div class="top-bar"><div class="left"><h1><i class="fas fa-code-compare"></i> Compare Data</h1></div></div>
-                <div class="section">
-                    <div class="search-box">
-                        <input type="text" id="compareInput" placeholder="Enter UID to compare..." />
-                        <button class="btn btn-primary" onclick="compareUserData()"><i class="fas fa-code-compare"></i> Compare</button>
-                    </div>
-                    <div id="compareResults"></div>
-                </div>
-            </div>
-
-            <!-- SYNC -->
-            <div id="sync" class="page-section">
-                <div class="top-bar"><div class="left"><h1><i class="fas fa-rotate"></i> Sync User</h1></div></div>
-                <div class="section">
-                    <div class="search-box">
-                        <input type="text" id="syncInput" placeholder="Enter UID to sync..." />
-                        <button class="btn btn-success" onclick="syncUser()"><i class="fas fa-rotate"></i> Sync Now</button>
-                    </div>
-                    <div id="syncResults"></div>
-                </div>
-            </div>
-
-            <!-- RESTORE -->
-            <div id="restore" class="page-section">
-                <div class="top-bar"><div class="left"><h1><i class="fas fa-rotate-left"></i> Restore User</h1></div></div>
-                <div class="section">
-                    <div class="search-box">
-                        <input type="text" id="restoreInput" placeholder="Enter UID to restore..." />
-                        <button class="btn btn-danger" onclick="restoreUser()"><i class="fas fa-rotate-left"></i> Restore</button>
-                    </div>
-                    <div id="restoreResults"></div>
-                </div>
-            </div>
-
-            <!-- RESTORE ALL -->
-            <div id="restore-all" class="page-section">
-                <div class="top-bar"><div class="left"><h1><i class="fas fa-database"></i> Restore All Users</h1></div></div>
-                <div class="section" style="text-align:center;padding:60px 24px;">
-                    <i class="fas fa-database" style="font-size:4rem;color:var(--danger);margin-bottom:24px;"></i>
-                    <h2 style="margin-bottom:12px;">Restore All Users from Backup</h2>
-                    <p style="color:var(--text-muted);margin-bottom:8px;max-width:550px;margin-left:auto;margin-right:auto;line-height:1.6;">
-                        This will restore <strong>ALL user data</strong> from Backup to Main Firebase.
-                        <br><span style="color:var(--danger);">⚠️ This action cannot be undone.</span>
-                    </p>
-                    <div style="margin:16px 0;padding:12px;background:var(--darker);border-radius:8px;display:inline-block;">
-                        <span id="restoreAllStatus" style="color:var(--text-muted);font-size:0.9rem;">
-                            <i class="fas fa-shield-halved"></i> 
-                            <span id="restoreAllPermission">Super Admin Only</span>
-                        </span>
-                    </div>
-                    <div id="restoreAllProgress" style="display:none;max-width:500px;margin:0 auto 24px;">
-                        <div class="progress-container">
-                            <div class="progress-bar"><div class="progress-fill" id="restoreAllProgressBar"></div></div>
-                            <div class="progress-text" id="restoreAllProgressText">0 / 0 users restored</div>
-                        </div>
-                    </div>
-                    <button class="btn btn-danger btn-lg" id="restoreAllBtn" onclick="restoreAllUsers()" disabled>
-                        <i class="fas fa-lock"></i> Super Admin Only
-                    </button>
-                    <div style="margin-top:12px;font-size:0.8rem;color:var(--text-muted);">
-                        <span id="restoreAllWarning">⚠️ Type <strong>"RESTORE ALL"</strong> to confirm</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- DELETED -->
-            <div id="deleted" class="page-section">
-                <div class="top-bar">
-                    <div class="left"><h1><i class="fas fa-trash-can"></i> Deleted Users</h1></div>
-                    <div class="right"><button class="btn btn-outline btn-sm" onclick="refreshDeletedUsers()"><i class="fas fa-rotate"></i> Refresh</button></div>
-                </div>
-                <div class="section"><div id="deletedUsersList"></div></div>
-            </div>
-
-            <!-- STATUS -->
-            <div id="status" class="page-section">
-                <div class="top-bar">
-                    <div class="left"><h1><i class="fas fa-heart-pulse"></i> Backup Status</h1></div>
-                    <div class="right"><button class="btn btn-outline btn-sm" onclick="checkBackupStatus()"><i class="fas fa-rotate"></i> Refresh</button></div>
-                </div>
-                <div class="section">
-                    <div class="card-grid">
-                        <div class="stat-card primary"><div class="icon"><i class="fas fa-server"></i></div><div class="value" id="mainDbStatus">Checking...</div><div class="label">Main Firebase</div></div>
-                        <div class="stat-card success"><div class="icon"><i class="fas fa-server"></i></div><div class="value" id="backupDbStatus">Checking...</div><div class="label">Backup Firebase</div></div>
-                        <div class="stat-card info"><div class="icon"><i class="fas fa-link"></i></div><div class="value" id="syncStatus">Checking...</div><div class="label">Sync Status</div></div>
-                        <div class="stat-card warning"><div class="icon"><i class="fas fa-database"></i></div><div class="value" id="totalRecords">0</div><div class="label">Total Records</div></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- HEALTH -->
-            <div id="health" class="page-section">
-                <div class="top-bar">
-                    <div class="left"><h1><i class="fas fa-stethoscope"></i> Health Check</h1></div>
-                    <div class="right"><button class="btn btn-primary btn-sm" onclick="runHealthCheck()"><i class="fas fa-play"></i> Run Check</button></div>
-                </div>
-                <div class="section"><div id="healthResults"></div></div>
-            </div>
-
-            <!-- LOGS -->
-            <div id="logs" class="page-section">
-                <div class="top-bar">
-                    <div class="left"><h1><i class="fas fa-clock-rotate-left"></i> Activity Log</h1></div>
-                    <div class="right">
-                        <button class="btn btn-outline btn-sm" onclick="refreshLogs()"><i class="fas fa-rotate"></i> Refresh</button>
-                        <button class="btn btn-danger btn-sm" onclick="clearLogs()"><i class="fas fa-trash"></i> Clear</button>
-                        <button class="btn btn-primary btn-sm" onclick="exportLogs()"><i class="fas fa-download"></i> Export</button>
-                    </div>
-                </div>
-                <div class="section"><div id="activityLog"></div></div>
-            </div>
-
-            <!-- DOWNLOAD -->
-            <div id="download" class="page-section">
-                <div class="top-bar"><div class="left"><h1><i class="fas fa-download"></i> Download Backup</h1></div></div>
-                <div class="section" style="text-align:center;padding:60px 24px;">
-                    <i class="fas fa-cloud-arrow-down" style="font-size:4rem;color:var(--primary);margin-bottom:24px;"></i>
-                    <h2 style="margin-bottom:12px;">Download Full Backup</h2>
-                    <p style="color:var(--text-muted);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto;">Download a complete backup of all user data from Backup Firebase.</p>
-                    <button class="btn btn-primary btn-lg" onclick="downloadBackup()"><i class="fas fa-download"></i> Download Backup</button>
-                </div>
-            </div>
-
-            <!-- SETTINGS -->
-            <div id="settings" class="page-section">
-                <div class="top-bar"><div class="left"><h1><i class="fas fa-gear"></i> Settings</h1></div></div>
-                <div class="section">
-                    <h3 style="margin-bottom:16px;"><i class="fas fa-sliders"></i> Backup Preferences</h3>
-                    <div style="display:grid;gap:16px;max-width:500px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--darker);border-radius:10px;">
-                            <div><div style="font-weight:600;">Auto Sync</div><div style="font-size:0.8rem;color:var(--text-muted);">Real-time backup</div></div>
-                            <label class="switch"><input type="checkbox" id="autoSyncToggle" checked onchange="toggleAutoSync()"><span class="slider"></span></label>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--darker);border-radius:10px;">
-                            <div><div style="font-weight:600;">Delete Alerts</div><div style="font-size:0.8rem;color:var(--text-muted);">Notify on user deletion</div></div>
-                            <label class="switch"><input type="checkbox" id="deleteAlertsToggle" checked onchange="toggleDeleteAlerts()"><span class="slider"></span></label>
-                        </div>
-                    </div>
-                </div>
-                <div class="section">
-                    <h3 style="margin-bottom:16px;"><i class="fas fa-info-circle"></i> System Info</h3>
-                    <div style="display:grid;gap:8px;font-size:0.9rem;color:var(--text-muted);">
-                        <div><strong>Version:</strong> 3.0.0</div>
-                        <div><strong>Environment:</strong> Production</div>
-                        <div><strong>Security:</strong> Firebase Auth</div>
-                    </div>
-                </div>
-            </div>
-
-        </main>
-    </div>
-
-    <!-- MODAL -->
-    <div class="modal-overlay" id="modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:2000;align-items:center;justify-content:center;">
-        <div class="modal" style="background:var(--card-bg);border:1px solid var(--border);border-radius:20px;width:92%;max-width:750px;max-height:85vh;overflow-y:auto;padding:24px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <h3 id="modalTitle"><i class="fas fa-info-circle"></i> Title</h3>
-                <button onclick="closeModal()" style="background:none;border:none;color:var(--text-muted);font-size:1.5rem;cursor:pointer;">&times;</button>
-            </div>
-            <div id="modalBody"></div>
-            <div id="modalFooter" style="margin-top:16px;display:flex;gap:12px;justify-content:flex-end;"></div>
-        </div>
-    </div>
-
-    <!-- NOTIFICATION -->
+    <!-- ==================== NOTIFICATION ==================== -->
     <div class="notification-toast" id="notification"></div>
 
-    <!-- FIREBASE SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+    <!-- ==================== HEADER ==================== -->
+    <header class="header">
+        <h1>
+            <i class="fas fa-shield-halved" style="color:#6366f1;"></i>
+            RND <span>Backup</span>
+            <span class="badge">v2.0</span>
+        </h1>
+        <div class="user">
+            <span class="email" id="adminEmailDisplay">admin@rnd.com</span>
+            <span id="statusDot" class="status-dot online"></span>
+            <div class="avatar" id="adminAvatar">A</div>
+            <button class="logout-btn" onclick="adminLogout()" title="Logout">
+                <i class="fas fa-sign-out-alt"></i>
+            </button>
+        </div>
+    </header>
 
-    <!-- admin.js -->
-    <script src="admin.js"></script>
+    <!-- ==================== MAIN CONTENT ==================== -->
+    <div class="container">
+
+        <!-- ALERTS -->
+        <div id="alertContainer"></div>
+
+        <!-- STATS -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="num" id="totalUsers">0</div>
+                <div class="label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="num success" id="backupUsers">0</div>
+                <div class="label">Backup Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="num warning" id="lastSyncTime">--</div>
+                <div class="label">Last Sync</div>
+            </div>
+            <div class="stat-card">
+                <div class="num danger" id="deletedCount">0</div>
+                <div class="label">Deleted Users</div>
+            </div>
+        </div>
+
+        <!-- QUICK ACTIONS -->
+        <div class="card">
+            <div class="card-title"><i class="fas fa-bolt"></i> Quick Actions</div>
+            <div class="flex">
+                <button class="btn btn-success" onclick="fullSync()">
+                    <i class="fas fa-rotate"></i> Backup Now
+                </button>
+                <button class="btn btn-primary" onclick="checkBackupStatus()">
+                    <i class="fas fa-heart-pulse"></i> Check Status
+                </button>
+                <button class="btn btn-warning" onclick="loadDeletedUsers()">
+                    <i class="fas fa-trash"></i> Check Deleted
+                </button>
+                <button class="btn btn-outline" onclick="clearAllLogs()">
+                    <i class="fas fa-times"></i> Clear Logs
+                </button>
+            </div>
+            <div id="syncProgress" class="hidden" style="margin-top:12px;">
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="syncProgressBar"></div>
+                    </div>
+                    <div class="progress-text" id="syncProgressText">Syncing...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESTORE DELETED USER -->
+        <div class="card">
+            <div class="card-title"><i class="fas fa-rotate-left"></i> Restore Deleted User</div>
+            <div class="card-subtitle">
+                जिस User का Data Delete हो गया है, उसका UID डालें और Restore करें
+            </div>
+            <div class="search-box">
+                <input type="text" id="restoreUid" placeholder="Enter UID to restore..." />
+                <button class="btn btn-danger" onclick="restoreUser()">
+                    <i class="fas fa-rotate-left"></i> Restore User
+                </button>
+            </div>
+            <div id="restoreResult"></div>
+        </div>
+
+        <!-- DELETED USERS LIST -->
+        <div class="card">
+            <div class="card-title"><i class="fas fa-trash-can"></i> Deleted Users</div>
+            <div id="deletedUsersList">
+                <div class="empty-state">
+                    <i class="fas fa-check-circle"></i>
+                    <p>No deleted users found</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- RECENT ACTIVITY -->
+        <div class="card">
+            <div class="card-title"><i class="fas fa-clock-rotate-left"></i> Recent Activity</div>
+            <div id="recentLogs">
+                <div class="empty-state">
+                    <i class="fas fa-clock"></i>
+                    <p>No activity yet</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ==================== FIREBASE SDK ==================== -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
+    </script>
+
+    <!-- ==================== ADMIN.JS (SEPARATE FILE) ==================== -->
+    <script src="admin.js">
+    </script>
 
 </body>
 </html>
