@@ -51,7 +51,7 @@
         .login-header h1 { color: #e2e8f0; font-size: 1.5rem; }
         .login-header h1 span { color: #6366f1; }
         .login-header p { color: #94a3b8; font-size: 0.9rem; }
-        .form-group { margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
         .form-group label { display: block; color: #94a3b8; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; }
         .form-group input {
             width: 100%; padding: 14px 16px;
@@ -102,8 +102,10 @@
             margin-bottom: 16px;
         }
         .success-message.show { display: block; }
-        .login-footer { text-align: center; margin-top: 24px; color: #94a3b8; font-size: 0.75rem; }
-        .login-footer i { color: #10b981; }
+        .signup-link { text-align: center; margin-top: 16px; color: #94a3b8; font-size: 0.85rem; }
+        .signup-link a { color: #6366f1; text-decoration: none; }
+        .signup-link a:hover { text-decoration: underline; }
+        .footer { text-align: center; margin-top: 20px; color: #94a3b8; font-size: 0.75rem; }
         @media (max-width: 480px) {
             .login-container { padding: 32px 24px; }
         }
@@ -116,7 +118,7 @@
     <div class="login-header">
         <div class="icon"><i class="fas fa-shield-halved"></i></div>
         <h1>RND <span>Backup</span></h1>
-        <p>Admin Panel • Secure Access</p>
+        <p>Admin Login • Secure Access</p>
     </div>
 
     <div class="error-message" id="errorMessage">❌ Invalid credentials</div>
@@ -136,7 +138,11 @@
         </button>
     </form>
 
-    <div class="login-footer">
+    <div class="signup-link">
+        New Admin? <a href="signup.html">Sign Up</a>
+    </div>
+
+    <div class="footer">
         <i class="fas fa-shield-alt"></i> Secure Admin Access • Firebase Authentication
     </div>
 
@@ -148,7 +154,7 @@
 
 <script>
 // ==================== FIREBASE CONFIG ====================
-const FIREBASE_CONFIG = {
+const MAIN_CONFIG = {
     apiKey: "AIzaSyAz-TLmOhiy-_vHHmIjW8gyIOqTR_PT9o0",
     authDomain: "rnd2-70080.firebaseapp.com",
     databaseURL: "https://rnd2-70080-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -158,16 +164,40 @@ const FIREBASE_CONFIG = {
     appId: "1:468625887938:web:5cb4ddbcf31b6fc0a4615b"
 };
 
-let app, auth;
+const BACKUP_CONFIG = {
+    databaseURL: "https://myapp-ee226-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+
+let mainApp, backupApp, mainDB, backupDB, auth;
 
 function initFirebase() {
-    try {
-        app = firebase.initializeApp(FIREBASE_CONFIG);
-    } catch(e) {
-        app = firebase.app();
+    try { mainApp = firebase.app('mainApp'); } catch(e) {
+        mainApp = firebase.initializeApp(MAIN_CONFIG, 'mainApp');
     }
-    auth = firebase.auth(app);
+    try { backupApp = firebase.app('backupApp'); } catch(e) {
+        backupApp = firebase.initializeApp(BACKUP_CONFIG, 'backupApp');
+    }
+    mainDB = firebase.database(mainApp);
+    backupDB = firebase.database(backupApp);
+    auth = firebase.auth(mainApp);
     console.log('✅ Firebase initialized');
+}
+
+// ==================== CHECK ADMIN ====================
+async function checkAdmin(uid, email) {
+    try {
+        // Check in Backup Firebase
+        const snap = await backupDB.ref('admins/' + uid).once('value');
+        if (snap.exists()) {
+            return true;
+        }
+        // Check in Main Firebase as fallback
+        const mainSnap = await mainDB.ref('admins/' + uid).once('value');
+        return mainSnap.exists();
+    } catch(e) {
+        console.error('Admin check error:', e);
+        return false;
+    }
 }
 
 // ==================== HANDLE LOGIN ====================
@@ -190,11 +220,6 @@ async function handleLogin(event) {
         errorEl.classList.add('show');
         return;
     }
-    if (password.length < 6) {
-        errorEl.textContent = '❌ Password must be at least 6 characters';
-        errorEl.classList.add('show');
-        return;
-    }
 
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner"></div> Logging in...';
@@ -202,21 +227,21 @@ async function handleLogin(event) {
     successEl.classList.remove('show');
 
     try {
-        console.log('🔐 Attempting login for:', email);
-        
-        // ✅ STEP 1: Login
         const result = await auth.signInWithEmailAndPassword(email, password);
         const user = result.user;
 
-        if (!user) throw new Error('Authentication failed');
+        // Verify admin
+        const isAdmin = await checkAdmin(user.uid, email);
+        if (!isAdmin) {
+            await auth.signOut();
+            errorEl.textContent = '⛔ Unauthorized: You are not an admin';
+            errorEl.classList.add('show');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+            return;
+        }
 
-        console.log('✅ Login successful:', email);
-        console.log('✅ User UID:', user.uid);
-
-        // ✅ STEP 2: Wait for auth state to be fully set
-        // This ensures auth.currentUser is available in index.html
-        
-        // ✅ STEP 3: Create session
+        // Create session
         const adminSession = {
             uid: user.uid,
             email: user.email,
@@ -224,110 +249,43 @@ async function handleLogin(event) {
             loginTime: new Date().toISOString(),
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         };
-
         localStorage.setItem('adminSession', JSON.stringify(adminSession));
-        console.log('✅ Session saved to localStorage');
 
-        // ✅ STEP 4: Show success
+        console.log('✅ Admin logged in:', email);
         successEl.classList.add('show');
 
-        // ✅ STEP 5: Redirect after auth state is fully set
-        // Wait for 1.5 seconds to ensure Firebase Auth state propagates
         setTimeout(() => {
-            // ✅ Double check that user is still logged in
-            if (auth.currentUser) {
-                console.log('🔄 Auth state confirmed, redirecting to dashboard...');
-                window.location.href = 'index.html';
-            } else {
-                console.log('⏳ Auth state not ready, waiting...');
-                // Wait for auth state change
-                const unsubscribe = auth.onAuthStateChanged((user) => {
-                    if (user) {
-                        unsubscribe();
-                        console.log('🔄 Auth state ready, redirecting to dashboard...');
-                        window.location.href = 'index.html';
-                    }
-                });
-                // Timeout fallback
-                setTimeout(() => {
-                    unsubscribe();
-                    console.log('🔄 Timeout fallback, redirecting to dashboard...');
-                    window.location.href = 'index.html';
-                }, 3000);
-            }
-        }, 1500);
+            window.location.href = 'index.html';
+        }, 1000);
 
     } catch(err) {
-        console.error('❌ Login error:', err.code, err.message);
-
-        let errorMsg = '❌ Login failed. Please try again.';
+        console.error('Login error:', err);
+        let msg = '❌ Login failed. Please try again.';
         if (err.code === 'auth/user-not-found') {
-            errorMsg = '❌ No account found. Please create user in Firebase Console first.';
+            msg = '❌ No account found. Please sign up first.';
         } else if (err.code === 'auth/wrong-password') {
-            errorMsg = '❌ Incorrect password. Please try again.';
-        } else if (err.code === 'auth/invalid-email') {
-            errorMsg = '❌ Invalid email address format.';
+            msg = '❌ Incorrect password. Please try again.';
         } else if (err.code === 'auth/too-many-requests') {
-            errorMsg = '❌ Too many failed attempts. Please try again later.';
-        } else if (err.code === 'auth/network-request-failed') {
-            errorMsg = '❌ Network error. Please check your internet connection.';
+            msg = '❌ Too many failed attempts. Please try again later.';
         }
-
-        errorEl.textContent = errorMsg;
+        errorEl.textContent = msg;
         errorEl.classList.add('show');
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
     }
 }
 
-// ==================== ENTER KEY SUPPORT ====================
-document.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        const active = document.activeElement;
-        if (active && (active.id === 'adminEmail' || active.id === 'adminPassword')) {
-            document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-        }
-    }
-});
-
 // ==================== CHECK EXISTING SESSION ====================
 function checkExistingSession() {
     const session = localStorage.getItem('adminSession');
-    if (!session) return false;
-    
-    try {
-        const admin = JSON.parse(session);
-        if (admin.expiresAt && new Date(admin.expiresAt) > new Date()) {
-            // ✅ Session exists, check if Firebase auth state is also active
-            // If not, wait for it
-            if (auth.currentUser) {
-                console.log('✅ Existing session with active auth, redirecting to dashboard');
+    if (session) {
+        try {
+            const admin = JSON.parse(session);
+            if (admin.expiresAt && new Date(admin.expiresAt) > new Date()) {
                 window.location.href = 'index.html';
                 return true;
-            } else {
-                console.log('⏳ Session exists but auth not ready, waiting...');
-                const unsubscribe = auth.onAuthStateChanged((user) => {
-                    if (user) {
-                        unsubscribe();
-                        console.log('✅ Auth ready, redirecting to dashboard');
-                        window.location.href = 'index.html';
-                    }
-                });
-                // Timeout fallback
-                setTimeout(() => {
-                    unsubscribe();
-                    if (auth.currentUser) {
-                        console.log('✅ Auth ready (timeout), redirecting to dashboard');
-                        window.location.href = 'index.html';
-                    }
-                }, 3000);
-                return true;
             }
-        } else {
-            localStorage.removeItem('adminSession');
-        }
-    } catch(e) {
-        localStorage.removeItem('adminSession');
+        } catch(e) {}
     }
     return false;
 }
@@ -335,17 +293,9 @@ function checkExistingSession() {
 // ==================== INIT ====================
 function init() {
     initFirebase();
-    
-    // Wait for auth state before checking session
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-        unsubscribe();
-        if (!checkExistingSession()) {
-            document.getElementById('adminEmail').focus();
-            console.log('✅ Login page ready');
-            console.log('📧 Email: rkv858810@gmail.com');
-            console.log('🔑 Password: 123@Randigital');
-        }
-    });
+    if (checkExistingSession()) return;
+    document.getElementById('adminEmail').focus();
+    console.log('✅ Login page ready');
 }
 
 if (document.readyState === 'loading') {
