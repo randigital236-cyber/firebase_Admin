@@ -253,9 +253,12 @@
     </div>
 
     <!-- ==================== FIREBASE SDK ==================== -->
+    <!-- ✅ ALL THREE SDKs INCLUDED -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
     </script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js">
     </script>
 
     <script>
@@ -317,7 +320,7 @@
             successEl.classList.remove('show');
 
             try {
-                // ========== ✅ सिर्फ Email/Password Authentication ==========
+                // ✅ सिर्फ Email/Password Authentication
                 const result = await auth.signInWithEmailAndPassword(email, password);
                 const user = result.user;
 
