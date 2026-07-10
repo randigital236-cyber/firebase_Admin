@@ -6,36 +6,27 @@
     <title>RND Backup - Admin Login</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
             background: #0f172a;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background-image: radial-gradient(ellipse at top, rgba(99, 102, 241, 0.08), transparent 70%);
             padding: 20px;
         }
-
         .login-container {
             background: #1e293b;
             border: 1px solid #334155;
             border-radius: 16px;
             padding: 48px 40px;
-            width: 440px;
+            width: 420px;
             max-width: 100%;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            animation: slideUp 0.6s ease;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
             position: relative;
             overflow: hidden;
         }
-
         .login-container::before {
             content: '';
             position: absolute;
@@ -43,28 +34,11 @@
             left: 0;
             width: 100%;
             height: 4px;
-            background: linear-gradient(90deg, #6366f1, #818cf8, #10b981);
+            background: linear-gradient(90deg, #6366f1, #10b981);
         }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 36px;
-        }
-
+        .login-header { text-align: center; margin-bottom: 32px; }
         .login-header .icon {
-            width: 72px;
-            height: 72px;
+            width: 72px; height: 72px;
             background: linear-gradient(135deg, #6366f1, #4f46e5);
             border-radius: 20px;
             display: flex;
@@ -73,139 +47,34 @@
             margin: 0 auto 16px;
             font-size: 2rem;
             color: white;
-            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
         }
-
-        .login-header h1 {
-            color: #e2e8f0;
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-
-        .login-header h1 span {
-            color: #6366f1;
-        }
-
-        .login-header p {
-            color: #94a3b8;
-            font-size: 0.9rem;
-            margin-top: 4px;
-        }
-
-        .login-header .version {
-            display: inline-block;
-            background: rgba(99, 102, 241, 0.1);
-            color: #818cf8;
-            padding: 2px 14px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            margin-top: 8px;
-            letter-spacing: 0.5px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
+        .login-header h1 { color: #e2e8f0; font-size: 1.5rem; }
+        .login-header h1 span { color: #6366f1; }
+        .login-header p { color: #94a3b8; font-size: 0.9rem; }
+        .form-group { margin-bottom: 20px; }
         .form-group label {
             display: block;
             color: #94a3b8;
             font-size: 0.8rem;
             font-weight: 600;
             margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
-
-        .form-group .input-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
             background: #0f172a;
             border: 1px solid #334155;
             border-radius: 10px;
-            transition: all 0.3s ease;
-            overflow: hidden;
-        }
-
-        .form-group .input-wrapper:focus-within {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        .form-group .input-wrapper .icon-left {
-            padding: 0 14px;
-            color: #94a3b8;
-            font-size: 1rem;
-            flex-shrink: 0;
-        }
-
-        .form-group .input-wrapper input {
-            flex: 1;
-            padding: 14px 14px 14px 0;
-            background: transparent;
-            border: none;
             color: #e2e8f0;
             font-size: 0.95rem;
             outline: none;
-            width: 100%;
+            transition: all 0.3s;
         }
-
-        .form-group .input-wrapper input::placeholder {
-            color: #64748b;
-            font-size: 0.85rem;
+        .form-group input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
         }
-
-        .form-group .input-wrapper .toggle-password {
-            padding: 0 14px;
-            color: #94a3b8;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            flex-shrink: 0;
-        }
-
-        .form-group .input-wrapper .toggle-password:hover {
-            color: #e2e8f0;
-        }
-
-        .form-options {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .form-options .remember {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #94a3b8;
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-
-        .form-options .remember input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            accent-color: #6366f1;
-            cursor: pointer;
-        }
-
-        .form-options .forgot-link {
-            color: #818cf8;
-            font-size: 0.85rem;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-
-        .form-options .forgot-link:hover {
-            color: #6366f1;
-            text-decoration: underline;
-        }
-
+        .form-group input::placeholder { color: #64748b; }
         .btn-login {
             width: 100%;
             padding: 14px;
@@ -216,577 +85,180 @@
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+            transition: all 0.3s;
         }
-
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
-        }
-
-        .btn-login:active {
-            transform: scale(0.98);
-        }
-
-        .btn-login:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
+        .btn-login:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.3); }
+        .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-login .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            width: 20px; height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
             border-top-color: white;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
             display: inline-block;
         }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .error-container {
-            margin-bottom: 16px;
-        }
-
+        @keyframes spin { to { transform: rotate(360deg); } }
         .error-message {
-            background: rgba(239, 68, 68, 0.08);
-            border: 1px solid rgba(239, 68, 68, 0.2);
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.2);
             border-radius: 10px;
             padding: 12px 16px;
             color: #fca5a5;
             font-size: 0.9rem;
             display: none;
-            align-items: center;
-            gap: 10px;
-            animation: shake 0.4s ease;
+            margin-bottom: 16px;
         }
-
-        .error-message.show {
-            display: flex;
-        }
-
-        .error-message i {
-            font-size: 1.1rem;
-        }
-
-        @keyframes shake {
-            0%,
-            100% {
-                transform: translateX(0);
-            }
-            25% {
-                transform: translateX(-8px);
-            }
-            75% {
-                transform: translateX(8px);
-            }
-        }
-
+        .error-message.show { display: block; }
         .success-message {
-            background: rgba(16, 185, 129, 0.08);
-            border: 1px solid rgba(16, 185, 129, 0.2);
+            background: rgba(16,185,129,0.08);
+            border: 1px solid rgba(16,185,129,0.2);
             border-radius: 10px;
             padding: 12px 16px;
             color: #6ee7b7;
             font-size: 0.9rem;
             display: none;
-            align-items: center;
-            gap: 10px;
             margin-bottom: 16px;
         }
-
-        .success-message.show {
-            display: flex;
-        }
-
-        .login-footer {
+        .success-message.show { display: block; }
+        .login-footer { text-align: center; margin-top: 24px; color: #94a3b8; font-size: 0.75rem; }
+        .demo-cred {
+            background: rgba(99,102,241,0.05);
+            border: 1px solid rgba(99,102,241,0.1);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
             text-align: center;
-            margin-top: 28px;
-            padding-top: 20px;
-            border-top: 1px solid #334155;
         }
-
-        .login-footer p {
-            color: #94a3b8;
-            font-size: 0.75rem;
-        }
-
-        .login-footer .security-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            color: #94a3b8;
-            font-size: 0.7rem;
-            margin-top: 8px;
-        }
-
-        .login-footer .security-badge i {
-            color: #10b981;
-        }
-
-        .loading-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(8px);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .loading-overlay.active {
-            display: flex;
-        }
-
-        .loading-overlay .spinner-large {
-            width: 48px;
-            height: 48px;
-            border: 3px solid rgba(99, 102, 241, 0.2);
-            border-top-color: #6366f1;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        .loading-overlay p {
-            color: #e2e8f0;
-            font-size: 1rem;
-            font-weight: 500;
-        }
-
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 32px 24px;
-            }
-            .login-header .icon {
-                width: 60px;
-                height: 60px;
-                font-size: 1.5rem;
-            }
-            .login-header h1 {
-                font-size: 1.2rem;
-            }
-            .form-options {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
-            }
-        }
+        .demo-cred p { color: #94a3b8; font-size: 0.8rem; margin-bottom: 4px; }
+        .demo-cred .cred { color: #e2e8f0; font-family: monospace; font-size: 0.9rem; }
+        .demo-cred .cred span { color: #10b981; }
     </style>
 </head>
 <body>
 
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner-large"></div>
-        <p>Authenticating...</p>
+<div class="login-container">
+    <div class="login-header">
+        <div class="icon"><i class="fas fa-shield-halved"></i></div>
+        <h1>RND <span>Backup</span></h1>
+        <p>Admin Panel • Simple & Secure</p>
     </div>
 
-    <!-- Login Container -->
-    <div class="login-container">
-
-        <!-- Header -->
-        <div class="login-header">
-            <div class="icon">
-                <i class="fas fa-shield-halved"></i>
-            </div>
-            <h1>RND <span>Backup</span></h1>
-            <p>Admin Panel • Secure Access</p>
-            <span class="version">v3.0 PRODUCTION</span>
-        </div>
-
-        <!-- Error & Success Messages -->
-        <div class="error-container">
-            <div class="error-message" id="errorMessage">
-                <i class="fas fa-circle-exclamation"></i>
-                <span id="errorText">Invalid credentials</span>
-            </div>
-        </div>
-
-        <div class="success-message" id="successMessage">
-            <i class="fas fa-check-circle"></i>
-            <span>Login successful! Redirecting...</span>
-        </div>
-
-        <!-- Login Form -->
-        <form id="loginForm" onsubmit="handleLogin(event)">
-
-            <!-- Email -->
-            <div class="form-group">
-                <label for="adminEmail"><i class="fas fa-envelope"></i> Email Address</label>
-                <div class="input-wrapper">
-                    <span class="icon-left"><i class="fas fa-envelope"></i></span>
-                    <input
-                    type="email"
-                    id="adminEmail"
-                    placeholder="Enter your admin email"
-                    required
-                    autocomplete="email"
-                    />
-                </div>
-            </div>
-
-            <!-- Password -->
-            <div class="form-group">
-                <label for="adminPassword"><i class="fas fa-lock"></i> Password</label>
-                <div class="input-wrapper">
-                    <span class="icon-left"><i class="fas fa-lock"></i></span>
-                    <input
-                    type="password"
-                    id="adminPassword"
-                    placeholder="Enter your password"
-                    required
-                    autocomplete="current-password"
-                    />
-                    <span class="toggle-password" onclick="togglePassword()">
-                        <i class="fas fa-eye" id="passwordToggleIcon"></i>
-                    </span>
-                </div>
-            </div>
-
-            <!-- Options -->
-            <div class="form-options">
-                <label class="remember">
-                    <input type="checkbox" id="rememberMe" checked />
-                    <span>Remember me</span>
-                </label>
-                <a href="#" class="forgot-link" onclick="showForgotPassword(event)">Forgot password?</a>
-            </div>
-
-            <!-- Login Button -->
-            <button type="submit" class="btn-login" id="loginBtn">
-                <i class="fas fa-sign-in-alt"></i>
-                <span>Login</span>
-            </button>
-        </form>
-
-        <!-- Footer -->
-        <div class="login-footer">
-            <p>Secure Admin Access • Firebase Authentication</p>
-            <div class="security-badge">
-                <i class="fas fa-shield-alt"></i>
-                <span>256-bit Encrypted</span>
-                <i class="fas fa-circle" style="font-size: 4px; color: #334155;"></i>
-                <span>Session: 24h</span>
-            </div>
-        </div>
-
+    <div class="demo-cred">
+        <p>📧 Your Admin Credentials</p>
+        <div class="cred">Email: <span>rkv858810@gmail.com</span> &nbsp;|&nbsp; Password: <span>123@Randigital</span></div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js">
-    </script>
+    <div class="error-message" id="errorMessage">❌ Invalid credentials</div>
+    <div class="success-message" id="successMessage">✅ Login successful! Redirecting...</div>
 
-    <script>
-        // ==================== FIREBASE CONFIG ====================
-        const FIREBASE_CONFIG = {
-            apiKey: "AIzaSyAz-TLmOhiy-_vHHmIjW8gyIOqTR_PT9o0",
-            authDomain: "rnd2-70080.firebaseapp.com",
-            databaseURL: "https://rnd2-70080-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "rnd2-70080",
-            storageBucket: "rnd2-70080.firebasestorage.app",
-            messagingSenderId: "468625887938",
-            appId: "1:468625887938:web:5cb4ddbcf31b6fc0a4615b"
-        };
+    <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+            <label>📧 Email Address</label>
+            <input type="email" id="adminEmail" placeholder="Enter your email" required />
+        </div>
+        <div class="form-group">
+            <label>🔒 Password</label>
+            <input type="password" id="adminPassword" placeholder="Enter your password" required />
+        </div>
+        <button type="submit" class="btn-login" id="loginBtn">
+            <i class="fas fa-sign-in-alt"></i> Login
+        </button>
+    </form>
 
-        // ==================== YOUR ADMIN CREDENTIALS ====================
-        // ✅ Email: rkv858810@gmail.com
-        // ✅ Password: 123@Randigital
+    <div class="login-footer">Secure Admin Access • Firebase Authentication</div>
+</div>
 
-        const SUPER_ADMINS = [
-            'rkv858810@gmail.com',
-            'randigital236@gmail.com',
-            'admin@rnd.com',
-            'superadmin@rnd.com'
-        ];
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-        // ==================== INITIALIZE FIREBASE ====================
-        let app, auth, db;
+<script>
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAz-TLmOhiy-_vHHmIjW8gyIOqTR_PT9o0",
+    authDomain: "rnd2-70080.firebaseapp.com",
+    databaseURL: "https://rnd2-70080-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "rnd2-70080",
+    storageBucket: "rnd2-70080.firebasestorage.app",
+    messagingSenderId: "468625887938",
+    appId: "1:468625887938:web:5cb4ddbcf31b6fc0a4615b"
+};
 
-        function initFirebase() {
-            try {
-                app = firebase.initializeApp(FIREBASE_CONFIG);
-                auth = firebase.auth(app);
-                db = firebase.database(app);
-                console.log('✅ Firebase initialized');
-                console.log('📧 Admin Email: rkv858810@gmail.com');
-            } catch (e) {
-                console.error('❌ Firebase init error:', e);
-                showError('Failed to initialize Firebase. Please check your connection.');
-            }
+const SUPER_ADMINS = ['rkv858810@gmail.com', 'admin@rnd.com'];
+
+let app, auth, db;
+
+function initFirebase() {
+    try { app = firebase.initializeApp(FIREBASE_CONFIG); } catch(e) {}
+    auth = firebase.auth(app);
+    db = firebase.database(app);
+}
+
+async function checkAdmin(uid, email) {
+    if (SUPER_ADMINS.includes(email)) return true;
+    const snap = await db.ref('admins/' + uid).once('value');
+    return snap.val() === true;
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('adminEmail').value.trim();
+    const password = document.getElementById('adminPassword').value.trim();
+    const errorEl = document.getElementById('errorMessage');
+    const successEl = document.getElementById('successMessage');
+    const btn = document.getElementById('loginBtn');
+
+    if (!email || !password) {
+        errorEl.textContent = '❌ Please enter email and password';
+        errorEl.classList.add('show');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Logging in...';
+    errorEl.classList.remove('show');
+    successEl.classList.remove('show');
+
+    try {
+        const result = await auth.signInWithEmailAndPassword(email, password);
+        const user = result.user;
+
+        const isAdmin = await checkAdmin(user.uid, email);
+        if (!isAdmin) {
+            await auth.signOut();
+            errorEl.textContent = '⛔ Unauthorized: You are not an admin';
+            errorEl.classList.add('show');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+            return;
         }
 
-        // ==================== DOM ELEMENTS ====================
-        const emailInput = document.getElementById('adminEmail');
-        const passwordInput = document.getElementById('adminPassword');
-        const loginBtn = document.getElementById('loginBtn');
-        const errorMessage = document.getElementById('errorMessage');
-        const errorText = document.getElementById('errorText');
-        const successMessage = document.getElementById('successMessage');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const rememberMe = document.getElementById('rememberMe');
+        localStorage.setItem('adminSession', JSON.stringify({
+            uid: user.uid,
+            email: user.email,
+            isAdmin: true,
+            expiresAt: new Date(Date.now() + 24*60*60*1000).toISOString()
+        }));
 
-        // ==================== TOGGLE PASSWORD ====================
-        function togglePassword() {
-            const input = document.getElementById('adminPassword');
-            const icon = document.getElementById('passwordToggleIcon');
+        successEl.classList.add('show');
+        setTimeout(() => { window.location.href = 'index.html'; }, 1000);
 
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.className = 'fas fa-eye-slash';
-            } else {
-                input.type = 'password';
-                icon.className = 'fas fa-eye';
-            }
-        }
+    } catch(err) {
+        let msg = '❌ Login failed. Please try again.';
+        if (err.code === 'auth/user-not-found') msg = '❌ No account found with this email.';
+        else if (err.code === 'auth/wrong-password') msg = '❌ Incorrect password.';
+        else if (err.code === 'auth/invalid-email') msg = '❌ Invalid email address.';
+        errorEl.textContent = msg;
+        errorEl.classList.add('show');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+    }
+}
 
-        // ==================== SHOW ERROR ====================
-        function showError(message) {
-            errorText.textContent = message;
-            errorMessage.classList.add('show');
-            successMessage.classList.remove('show');
+document.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+});
 
-            clearTimeout(errorMessage._timeout);
-            errorMessage._timeout = setTimeout(() => {
-                errorMessage.classList.remove('show');
-            }, 5000);
-        }
-
-        // ==================== SHOW SUCCESS ====================
-        function showSuccess(message) {
-            successMessage.querySelector('span').textContent = message;
-            successMessage.classList.add('show');
-            errorMessage.classList.remove('show');
-        }
-
-        // ==================== CHECK ADMIN STATUS ====================
-        async function checkAdminStatus(uid, email) {
-            try {
-                // Check Super Admin list
-                if (SUPER_ADMINS.includes(email)) {
-                    return { isAdmin: true, isSuperAdmin: true };
-                }
-
-                // Check Firebase admins node
-                const snap = await db.ref(`admins/${uid}`).once('value');
-                if (snap.val() === true) {
-                    return { isAdmin: true, isSuperAdmin: false };
-                }
-
-                return { isAdmin: false, isSuperAdmin: false };
-            } catch (e) {
-                console.error('Admin check error:', e);
-                return { isAdmin: false, isSuperAdmin: false };
-            }
-        }
-
-        // ==================== AUTO CREATE ADMIN ON LOGIN ====================
-        async function autoCreateAdmin(uid, email) {
-            try {
-                // Agar email SUPER_ADMINS list mein hai toh auto-create admin
-                if (SUPER_ADMINS.includes(email)) {
-                    await db.ref(`admins/${uid}`).set(true);
-                    console.log('✅ Auto-created admin for:', email);
-                    return true;
-                }
-                return false;
-            } catch (e) {
-                console.error('Auto-create admin error:', e);
-                return false;
-            }
-        }
-
-        // ==================== HANDLE LOGIN ====================
-        async function handleLogin(event) {
-            event.preventDefault();
-
-            const email = emailInput.value.trim();
-            const password = passwordInput.value.trim();
-
-            if (!email) {
-                showError('Please enter your email address');
-                return;
-            }
-            if (!password) {
-                showError('Please enter your password');
-                return;
-            }
-            if (password.length < 6) {
-                showError('Password must be at least 6 characters');
-                return;
-            }
-
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = '<div class="spinner"></div> Logging in...';
-            errorMessage.classList.remove('show');
-            successMessage.classList.remove('show');
-
-            try {
-                const result = await auth.signInWithEmailAndPassword(email, password);
-                const user = result.user;
-
-                if (!user) {
-                    throw new Error('Authentication failed');
-                }
-
-                // AUTO-CREATE ADMIN (MAGIC!)
-                await autoCreateAdmin(user.uid, email);
-
-                // Check admin status
-                const adminStatus = await checkAdminStatus(user.uid, email);
-
-                if (!adminStatus.isAdmin && !adminStatus.isSuperAdmin) {
-                    await auth.signOut();
-                    showError('⛔ Unauthorized: You do not have admin access.');
-                    loginBtn.disabled = false;
-                    loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span>Login</span>';
-                    return;
-                }
-
-                const adminSession = {
-                    uid: user.uid,
-                    email: user.email,
-                    isSuperAdmin: adminStatus.isSuperAdmin,
-                    isAdmin: adminStatus.isAdmin,
-                    loginTime: new Date().toISOString(),
-                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                };
-
-                if (rememberMe.checked) {
-                    localStorage.setItem('adminSession', JSON.stringify(adminSession));
-                } else {
-                    sessionStorage.setItem('adminSession', JSON.stringify(adminSession));
-                }
-
-                console.log('✅ Admin logged in:', email);
-                showSuccess('Login successful! Redirecting to dashboard...');
-
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 1000);
-
-            } catch (err) {
-                console.error('Login error:', err);
-
-                let errorMsg = 'Login failed. Please try again.';
-
-                if (err.code === 'auth/user-not-found') {
-                    errorMsg = '❌ No account found. Please create user in Firebase Console first.';
-                } else if (err.code === 'auth/wrong-password') {
-                    errorMsg = '❌ Incorrect password. Please try again.';
-                } else if (err.code === 'auth/invalid-email') {
-                    errorMsg = '❌ Invalid email address format.';
-                } else if (err.code === 'auth/too-many-requests') {
-                    errorMsg = '❌ Too many failed attempts. Please try again later.';
-                } else if (err.code === 'auth/network-request-failed') {
-                    errorMsg = '❌ Network error. Please check your internet connection.';
-                }
-
-                showError(errorMsg);
-                loginBtn.disabled = false;
-                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span>Login</span>';
-            }
-        }
-
-        // ==================== FORGOT PASSWORD ====================
-        function showForgotPassword(event) {
-            event.preventDefault();
-            const email = emailInput.value.trim();
-
-            if (!email) {
-                showError('Please enter your email address first');
-                return;
-            }
-
-            if (!confirm(`Send password reset email to ${email}?`)) return;
-
-            auth.sendPasswordResetEmail(email)
-                .then(() => {
-                    showSuccess(`✅ Password reset email sent to ${email}`);
-                })
-                .catch((err) => {
-                    showError('❌ Failed to send reset email: ' + err.message);
-                });
-        }
-
-        // ==================== CHECK EXISTING SESSION ====================
-        function checkExistingSession() {
-            let session = localStorage.getItem('adminSession');
-            if (!session) {
-                session = sessionStorage.getItem('adminSession');
-            }
-
-            if (session) {
-                try {
-                    const admin = JSON.parse(session);
-                    if (admin.expiresAt && new Date(admin.expiresAt) > new Date()) {
-                        window.location.href = 'index.html';
-                        return true;
-                    } else {
-                        localStorage.removeItem('adminSession');
-                        sessionStorage.removeItem('adminSession');
-                    }
-                } catch (e) {
-                    localStorage.removeItem('adminSession');
-                    sessionStorage.removeItem('adminSession');
-                }
-            }
-            return false;
-        }
-
-        // ==================== ENTER KEY SUPPORT ====================
-        document.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const active = document.activeElement;
-                if (active && (active.id === 'adminEmail' || active.id === 'adminPassword')) {
-                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-                }
-            }
-        });
-
-        // ==================== INITIALIZE ====================
-        function init() {
-            initFirebase();
-
-            if (checkExistingSession()) return;
-
-            emailInput.focus();
-
-            console.log('✅ Login page ready');
-            console.log('📧 Email: rkv858810@gmail.com');
-            console.log('🔑 Password: 123@Randigital');
-            console.log('🤖 Auto-create admin enabled!');
-        }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-        } else {
-            init();
-        }
-
-        // ==================== EXPOSE FUNCTIONS ====================
-        window.togglePassword = togglePassword;
-        window.handleLogin = handleLogin;
-        window.showForgotPassword = showForgotPassword;
-    </script>
+initFirebase();
+</script>
 </body>
 </html>
