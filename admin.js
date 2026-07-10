@@ -1,5 +1,8 @@
-// ==================== RND BACKUP SYSTEM v2.1 - COMPLETE JAVASCRIPT ====================
-// ✅ FIXED: init() function order - Firebase first, then session check
+// ==================== RND BACKUP SYSTEM v2.1 - COMPLETE FIXED ====================
+// ✅ FIXED: init() order - Firebase first, then session check
+// ✅ FIXED: auth.onAuthStateChanged - No premature redirect
+// ✅ FIXED: checkSession() - Local Storage first
+// ✅ FIXED: Session stays after page refresh
 
 // ==================== FIREBASE CONFIG ====================
 const MAIN_CONFIG = {
@@ -22,6 +25,7 @@ const SYNC_PATHS = ['users', 'deposits', 'withdrawals', 'usedTransactions', 'pro
 let mainApp, backupApp, mainDB, backupDB, auth;
 let currentAdmin = null;
 let pendingAction = null;
+let authInitialized = false;
 
 // ==================== INITIALIZE FIREBASE ====================
 function initFirebase() {
@@ -42,6 +46,7 @@ function initFirebase() {
     auth = firebase.auth(mainApp);
 
     console.log('✅ Firebase initialized');
+    authInitialized = true;
 }
 
 // ==================== UPDATE ADMIN UI ====================
@@ -69,9 +74,11 @@ function checkSession() {
                 return true;
             } else {
                 localStorage.removeItem('adminSession');
+                console.log('⏰ Session expired');
             }
         } catch(e) {
             localStorage.removeItem('adminSession');
+            console.log('❌ Invalid session');
         }
     }
 
@@ -93,8 +100,7 @@ function checkSession() {
     }
 
     // ❌ कोई Session नहीं
-    console.log('❌ No session found, redirecting to login');
-    window.location.href = 'admin-login.html';
+    console.log('❌ No session found');
     return false;
 }
 
@@ -103,6 +109,69 @@ function adminLogout() {
     localStorage.removeItem('adminSession');
     if (auth) auth.signOut();
     window.location.href = 'admin-login.html';
+}
+
+// ==================== AUTH STATE LISTENER (FIXED) ====================
+function setupAuthListener() {
+    if (!auth) return;
+    
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            console.log('✅ Auth State: User logged in:', user.email);
+            
+            // ✅ Session बनाएं या Update करें
+            const session = localStorage.getItem('adminSession');
+            if (!session) {
+                const adminSession = {
+                    uid: user.uid,
+                    email: user.email,
+                    isAdmin: true,
+                    loginTime: new Date().toISOString(),
+                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                };
+                localStorage.setItem('adminSession', JSON.stringify(adminSession));
+                currentAdmin = adminSession;
+                updateAdminUI();
+                console.log('✅ Session created from Auth Listener');
+            } else {
+                try {
+                    const admin = JSON.parse(session);
+                    if (admin.email !== user.email) {
+                        // Email mismatch - update session
+                        const adminSession = {
+                            uid: user.uid,
+                            email: user.email,
+                            isAdmin: true,
+                            loginTime: new Date().toISOString(),
+                            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                        };
+                        localStorage.setItem('adminSession', JSON.stringify(adminSession));
+                        currentAdmin = adminSession;
+                        updateAdminUI();
+                    }
+                } catch(e) {}
+            }
+            
+            // ✅ अगर Login Page पर है तो Dashboard पर Redirect करें
+            if (window.location.pathname.includes('admin-login.html')) {
+                window.location.href = 'index.html';
+            }
+            
+        } else {
+            console.log('❌ Auth State: No user');
+            
+            // ✅ अगर Session है तो Redirect मत करें (Wait for session check)
+            if (localStorage.getItem('adminSession')) {
+                console.log('⏳ Session exists, waiting for checkSession()');
+                return;
+            }
+            
+            // ✅ अगर Login Page पर नहीं हैं तो Redirect करें
+            if (!window.location.pathname.includes('admin-login.html')) {
+                window.location.href = 'admin-login.html';
+            }
+        }
+    });
 }
 
 // ==================== NOTIFICATION ====================
@@ -717,47 +786,26 @@ function setupKeyboardShortcuts() {
     }
 }
 
-// ==================== AUTH STATE LISTENER ====================
-function setupAuthListener() {
-    if (!auth) return;
-    
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-            console.log('✅ Auth State: User logged in:', user.email);
-            // Session already exists or will be created by checkSession
-        } else {
-            console.log('❌ Auth State: No user');
-            const session = localStorage.getItem('adminSession');
-            if (session) {
-                // Session exists but Firebase says no user - clear session
-                localStorage.removeItem('adminSession');
-                if (!window.location.pathname.includes('admin-login.html')) {
-                    window.location.href = 'admin-login.html';
-                }
-            }
-        }
-    });
-}
-
-// ==================== INIT ====================
+// ==================== INIT (FIXED ORDER) ====================
 async function init() {
     console.log('🚀 Starting RND Backup System...');
 
-    // ✅ सबसे पहले Firebase Initialize करें
+    // ✅ STEP 1: सबसे पहले Firebase Initialize करें
     initFirebase();
 
-    // ✅ Auth Listener Setup
+    // ✅ STEP 2: Auth Listener Setup
     setupAuthListener();
 
-    // ✅ अब Session Check करें
+    // ✅ STEP 3: अब Session Check करें
     if (!checkSession()) {
-        console.log('❌ Session check failed');
+        console.log('❌ Session check failed, redirecting to login...');
+        window.location.href = 'admin-login.html';
         return;
     }
 
     console.log('✅ Session check passed, loading dashboard...');
 
-    // ✅ Dashboard Load करें
+    // ✅ STEP 4: Dashboard Load करें
     await loadStats();
     renderLogs();
     await loadDeletedUsers();
@@ -765,8 +813,8 @@ async function init() {
     setupDeleteListener();
     setupKeyboardShortcuts();
 
+    // ✅ Periodic updates
     setInterval(updateStatusDot, 30000);
-
     setInterval(() => {
         loadDeletedUsers();
     }, 60000);
