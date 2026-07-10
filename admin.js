@@ -43,12 +43,33 @@ function initFirebase() {
     backupDB = firebase.database(backupApp);
     auth = firebase.auth(mainApp);
 
+    // ✅ FIX: Auth state listener - Session को Manage करें
     auth.onAuthStateChanged((user) => {
         if (!user) {
+            // User logged out
             const session = localStorage.getItem('adminSession');
             if (session) {
                 localStorage.removeItem('adminSession');
+            }
+            // Only redirect if we're not already on login page
+            if (!window.location.pathname.includes('admin-login.html')) {
                 window.location.href = 'admin-login.html';
+            }
+        } else {
+            // User is logged in - update session
+            const session = localStorage.getItem('adminSession');
+            if (!session) {
+                // Session missing but user is logged in - create session
+                const adminSession = {
+                    uid: user.uid,
+                    email: user.email,
+                    isAdmin: true,
+                    loginTime: new Date().toISOString(),
+                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+                };
+                localStorage.setItem('adminSession', JSON.stringify(adminSession));
+                currentAdmin = adminSession;
+                updateAdminUI();
             }
         }
     });
@@ -56,12 +77,34 @@ function initFirebase() {
     console.log('✅ Firebase initialized');
 }
 
+// ==================== UPDATE ADMIN UI ====================
+function updateAdminUI() {
+    if (currentAdmin) {
+        document.getElementById('adminEmailDisplay').textContent = currentAdmin.email;
+        document.getElementById('adminAvatar').textContent = currentAdmin.email.charAt(0).toUpperCase();
+    }
+}
+
 // ==================== SESSION MANAGEMENT ====================
 function checkSession() {
     let session = localStorage.getItem('adminSession');
     if (!session) {
-        window.location.href = 'admin-login.html';
-        return false;
+        // Try to get from Firebase Auth
+        const user = auth.currentUser;
+        if (user) {
+            const adminSession = {
+                uid: user.uid,
+                email: user.email,
+                isAdmin: true,
+                loginTime: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            };
+            localStorage.setItem('adminSession', JSON.stringify(adminSession));
+            session = JSON.stringify(adminSession);
+        } else {
+            window.location.href = 'admin-login.html';
+            return false;
+        }
     }
 
     try {
@@ -72,10 +115,7 @@ function checkSession() {
             return false;
         }
         currentAdmin = admin;
-
-        document.getElementById('adminEmailDisplay').textContent = admin.email;
-        document.getElementById('adminAvatar').textContent = admin.email.charAt(0).toUpperCase();
-
+        updateAdminUI();
         return true;
     } catch(e) {
         window.location.href = 'admin-login.html';
@@ -705,6 +745,7 @@ function setupKeyboardShortcuts() {
 
 // ==================== INIT ====================
 async function init() {
+    // ✅ FIX: Session check को async बनाया
     if (!checkSession()) return;
 
     initFirebase();
