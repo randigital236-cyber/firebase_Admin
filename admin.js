@@ -1,4 +1,7 @@
-// ==================== RND BACKUP SYSTEM v2.0 - COMPLETE JAVASCRIPT ====================
+// ==================== RND BACKUP SYSTEM v2.1 - COMPLETE JAVASCRIPT ====================
+// ✅ Added: Restore All Database Button
+// ✅ Added: Confirmation before Backup
+// ✅ Added: Confirmation before Restore
 
 // ==================== FIREBASE CONFIG ====================
 const MAIN_CONFIG = {
@@ -20,6 +23,7 @@ const SYNC_PATHS = ['users', 'deposits', 'withdrawals', 'usedTransactions', 'pro
 // ==================== GLOBAL VARIABLES ====================
 let mainApp, backupApp, mainDB, backupDB, auth;
 let currentAdmin = null;
+let pendingAction = null;
 
 // ==================== INITIALIZE FIREBASE ====================
 function initFirebase() {
@@ -39,7 +43,6 @@ function initFirebase() {
     backupDB = firebase.database(backupApp);
     auth = firebase.auth(mainApp);
 
-    // Auth state listener
     auth.onAuthStateChanged((user) => {
         if (!user) {
             const session = localStorage.getItem('adminSession');
@@ -70,7 +73,6 @@ function checkSession() {
         }
         currentAdmin = admin;
 
-        // Update UI
         document.getElementById('adminEmailDisplay').textContent = admin.email;
         document.getElementById('adminAvatar').textContent = admin.email.charAt(0).toUpperCase();
 
@@ -190,6 +192,31 @@ function renderLogs() {
     container.innerHTML = html;
 }
 
+// ==================== CONFIRM DIALOG ====================
+function showConfirm(title, message, icon, action, actionLabel) {
+    pendingAction = action;
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    document.getElementById('confirmIcon').textContent = icon || '⚠️';
+    document.getElementById('confirmIcon').className = 'icon ' + (icon === '⚠️' ? 'warning' : icon === '🚨' ? 'danger' : 'info');
+    document.getElementById('confirmBtn').textContent = actionLabel || 'Confirm';
+    document.getElementById('confirmBtn').className = 'btn ' + (icon === '🚨' ? 'btn-danger' : 'btn-warning');
+    document.getElementById('confirmOverlay').classList.add('active');
+}
+
+function closeConfirm() {
+    document.getElementById('confirmOverlay').classList.remove('active');
+    pendingAction = null;
+}
+
+function executeConfirmed() {
+    document.getElementById('confirmOverlay').classList.remove('active');
+    if (pendingAction) {
+        pendingAction();
+        pendingAction = null;
+    }
+}
+
 // ==================== LOAD STATS ====================
 async function loadStats() {
     try {
@@ -202,20 +229,15 @@ async function loadStats() {
         document.getElementById('totalUsers').textContent = mainUsers;
         document.getElementById('backupUsers').textContent = backupUsers;
 
-        // Get last sync time
         const logs = getLogs();
         const lastSync = logs.find(l => l.action === 'Full Backup');
         document.getElementById('lastSyncTime').textContent = lastSync ? formatDate(lastSync.time) : '--';
 
-        // Update deleted count
         await loadDeletedUsers();
-
-        // Update status dot
         updateStatusDot();
 
     } catch(e) {
         console.error('Stats error:', e);
-        showNotification('Error loading stats: ' + e.message, 'error');
     }
 }
 
@@ -226,12 +248,20 @@ async function updateStatusDot() {
         if (dot) {
             dot.className = 'status-dot ' + (snap.val() !== null ? 'online' : 'offline');
         }
-    } catch(e) {
-        // Ignore
-    }
+    } catch(e) {}
 }
 
-// ==================== FULL SYNC ====================
+// ==================== FULL SYNC (WITH CONFIRMATION) ====================
+function confirmBackup() {
+    showConfirm(
+        '📦 Take Backup?',
+        'This will copy ALL data from Main Firebase to Backup Firebase. Are you sure you want to continue?',
+        '⚠️',
+        function() { fullSync(); },
+        'Yes, Backup Now'
+    );
+}
+
 async function fullSync() {
     const btn = document.querySelector('.btn-success');
     const progressDiv = document.getElementById('syncProgress');
@@ -263,7 +293,6 @@ async function fullSync() {
                     await backupDB.ref(path).set(data);
                     synced++;
                 } else {
-                    // Path exists but empty, still consider it synced
                     synced++;
                 }
             } catch(e) {
@@ -272,7 +301,6 @@ async function fullSync() {
                 progressText.textContent = `❌ Failed: ${path}`;
             }
 
-            // Small delay to prevent rate limiting
             await new Promise(r => setTimeout(r, 100));
         }
 
@@ -312,20 +340,93 @@ async function fullSync() {
     }
 }
 
-// ==================== RESTORE USER ====================
-async function restoreUser() {
-    const uid = document.getElementById('restoreUid').value.trim();
-    const container = document.getElementById('restoreResult');
+// ==================== RESTORE ALL DATABASE (NEW) ====================
+function confirmRestoreAll() {
+    showConfirm(
+        '🚨 Restore All Database?',
+        '⚠️ WARNING: This will OVERWRITE all data in Main Firebase with data from Backup Firebase! This action CANNOT be undone. Are you absolutely sure?',
+        '🚨',
+        function() { restoreAllDatabase(); },
+        'Yes, Restore All'
+    );
+}
 
+async function restoreAllDatabase() {
+    const btn = document.querySelector('.btn-danger');
+    if (!btn) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Restoring All...';
+
+    showNotification('Starting full database restore...', 'info');
+
+    try {
+        // First check if backup has any data
+        const backupCheck = await backupDB.ref('users').once('value');
+        if (!backupCheck.exists()) {
+            showNotification('❌ No data found in Backup Firebase!', 'error');
+            addLog('Restore All', 'failed', 'No data in backup');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-database"></i> Restore All Database';
+            return;
+        }
+
+        let restored = 0;
+        let failed = 0;
+        const total = SYNC_PATHS.length;
+
+        for (const path of SYNC_PATHS) {
+            try {
+                const snap = await backupDB.ref(path).once('value');
+                const data = snap.val();
+                if (data && Object.keys(data).length > 0) {
+                    await mainDB.ref(path).set(data);
+                    restored++;
+                }
+            } catch(e) {
+                failed++;
+                console.error('Restore All failed for', path, e);
+            }
+        }
+
+        showNotification(
+            failed > 0 ? `✅ Restore complete! ${restored}/${total} paths, ${failed} failed` : `✅ All ${restored} paths restored successfully!`,
+            failed > 0 ? 'warning' : 'success'
+        );
+
+        addLog('Restore All Database', failed > 0 ? 'warning' : 'success', `${restored}/${total} paths`);
+
+        await loadStats();
+        await loadDeletedUsers();
+
+    } catch(e) {
+        showNotification('❌ Restore All failed: ' + e.message, 'error');
+        addLog('Restore All Database', 'failed', e.message);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-database"></i> Restore All Database';
+}
+
+// ==================== RESTORE USER (WITH CONFIRMATION) ====================
+function confirmRestoreUser() {
+    const uid = document.getElementById('restoreUid').value.trim();
     if (!uid) {
-        container.innerHTML = `
-            <div class="alert alert-warning">
-                <i class="fas fa-exclamation-triangle"></i>
-                Please enter a UID
-            </div>
-        `;
+        showNotification('Please enter a UID first', 'warning');
         return;
     }
+
+    showConfirm(
+        '🔄 Restore User?',
+        `Are you sure you want to restore user "${uid}" from Backup Firebase to Main Firebase?`,
+        '⚠️',
+        function() { restoreUser(uid); },
+        'Yes, Restore User'
+    );
+}
+
+async function restoreUser(uid) {
+    const container = document.getElementById('restoreResult');
 
     container.innerHTML = `
         <div style="text-align:center;padding:20px;">
@@ -335,7 +436,6 @@ async function restoreUser() {
     `;
 
     try {
-        // Check if user exists in backup
         const backupSnap = await backupDB.ref('users/' + uid).once('value');
         if (!backupSnap.exists()) {
             container.innerHTML = `
@@ -379,11 +479,9 @@ async function restoreUser() {
         showNotification(`User ${uid} restored!`, 'success');
         addLog('Restore User', 'success', `UID: ${uid} (${restored} paths)`);
 
-        // Remove from deleted list if present
         await loadDeletedUsers();
         await loadStats();
 
-        // Clear input
         document.getElementById('restoreUid').value = '';
 
     } catch(e) {
@@ -428,7 +526,6 @@ async function loadDeletedUsers() {
             }
         }
 
-        // Update count
         document.getElementById('deletedCount').textContent = deleted.length;
 
         if (deleted.length === 0) {
@@ -438,14 +535,12 @@ async function loadDeletedUsers() {
                     <p>No deleted users found</p>
                 </div>
             `;
-
             if (alertContainer) {
                 alertContainer.innerHTML = '';
             }
             return;
         }
 
-        // Show alert for latest deleted user
         if (alertContainer) {
             const latest = deleted[0];
             alertContainer.innerHTML = `
@@ -457,8 +552,7 @@ async function loadDeletedUsers() {
                         <br>
                         <button class="btn btn-danger btn-sm" style="margin-top:8px;" 
                                 onclick="document.getElementById('restoreUid').value='${latest.uid}';
-                                        document.getElementById('restoreResult').innerHTML='';
-                                        restoreUser();">
+                                        confirmRestoreUser();">
                             <i class="fas fa-rotate-left"></i> Recover Now
                         </button>
                         <button class="btn btn-outline btn-sm" style="margin-top:8px;" 
@@ -470,7 +564,6 @@ async function loadDeletedUsers() {
             `;
         }
 
-        // Build table
         let html = `
             <div style="margin-bottom:12px;color:#94a3b8;font-size:0.9rem;">
                 <strong style="color:#ef4444;">${deleted.length}</strong> deleted users found
@@ -498,8 +591,7 @@ async function loadDeletedUsers() {
                     <td>
                         <button class="btn btn-danger btn-sm" 
                                 onclick="document.getElementById('restoreUid').value='${user.uid}';
-                                        document.getElementById('restoreResult').innerHTML='';
-                                        restoreUser();">
+                                        confirmRestoreUser();">
                             <i class="fas fa-rotate-left"></i> Restore
                         </button>
                     </td>
@@ -548,11 +640,9 @@ async function checkBackupStatus() {
             backupPaths[path] = backupCount;
         }
 
-        // Show detailed status
         let statusMsg = `✅ Main: ${mainTotal} records | Backup: ${backupTotal} records`;
         let statusType = mainTotal === backupTotal ? 'success' : 'warning';
 
-        // Check each path
         let mismatch = false;
         let mismatchDetails = [];
         for (const path of SYNC_PATHS) {
@@ -594,7 +684,6 @@ function setupDeleteListener() {
 
         addLog('User Deleted', 'warning', `UID: ${uid} - ${user?.name || 'Unknown'}`);
 
-        // Reload deleted users list
         setTimeout(() => {
             loadDeletedUsers();
             loadStats();
@@ -608,7 +697,7 @@ function setupKeyboardShortcuts() {
     if (restoreInput) {
         restoreInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                restoreUser();
+                confirmRestoreUser();
             }
         });
     }
@@ -618,35 +707,29 @@ function setupKeyboardShortcuts() {
 async function init() {
     if (!checkSession()) return;
 
-    // Initialize Firebase
     initFirebase();
 
-    // Load data
     await loadStats();
     renderLogs();
     await loadDeletedUsers();
 
-    // Setup listeners
     setupDeleteListener();
     setupKeyboardShortcuts();
 
-    // Status dot update every 30 seconds
     setInterval(updateStatusDot, 30000);
 
-    // Auto refresh deleted users every 60 seconds
     setInterval(() => {
         loadDeletedUsers();
     }, 60000);
 
-    addLog('System Started', 'success', 'v2.0');
+    addLog('System Started', 'success', 'v2.1');
 
-    console.log('✅ RND Backup System v2.0 Started');
+    console.log('✅ RND Backup System v2.1 Started');
     console.log('📧 Admin:', currentAdmin?.email);
     console.log('📊 Sync Paths:', SYNC_PATHS);
-    console.log('💡 Tip: Use "Backup Now" to sync all data to backup Firebase');
+    console.log('✅ New Features: Restore All + Confirmations');
 }
 
-// Start when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
