@@ -137,7 +137,8 @@
     </form>
 
     <div class="login-footer">
-        <i class="fas fa-shield-alt"></i> Secure Admin Access • Firebase Authentication    </div>
+        <i class="fas fa-shield-alt"></i> Secure Admin Access • Firebase Authentication
+    </div>
 
 </div>
 
@@ -146,6 +147,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
 <script>
+// ==================== FIREBASE CONFIG ====================
 const FIREBASE_CONFIG = {
     apiKey: "AIzaSyAz-TLmOhiy-_vHHmIjW8gyIOqTR_PT9o0",
     authDomain: "rnd2-70080.firebaseapp.com",
@@ -159,11 +161,16 @@ const FIREBASE_CONFIG = {
 let app, auth;
 
 function initFirebase() {
-    try { app = firebase.initializeApp(FIREBASE_CONFIG); } catch(e) { app = firebase.app(); }
+    try {
+        app = firebase.initializeApp(FIREBASE_CONFIG);
+    } catch(e) {
+        app = firebase.app();
+    }
     auth = firebase.auth(app);
     console.log('✅ Firebase initialized');
 }
 
+// ==================== HANDLE LOGIN ====================
 async function handleLogin(event) {
     event.preventDefault();
 
@@ -196,6 +203,8 @@ async function handleLogin(event) {
 
     try {
         console.log('🔐 Attempting login for:', email);
+        
+        // ✅ STEP 1: Login
         const result = await auth.signInWithEmailAndPassword(email, password);
         const user = result.user;
 
@@ -203,8 +212,11 @@ async function handleLogin(event) {
 
         console.log('✅ Login successful:', email);
         console.log('✅ User UID:', user.uid);
-        console.log('✅ User Email:', user.email);
 
+        // ✅ STEP 2: Wait for auth state to be fully set
+        // This ensures auth.currentUser is available in index.html
+        
+        // ✅ STEP 3: Create session
         const adminSession = {
             uid: user.uid,
             email: user.email,
@@ -216,12 +228,34 @@ async function handleLogin(event) {
         localStorage.setItem('adminSession', JSON.stringify(adminSession));
         console.log('✅ Session saved to localStorage');
 
+        // ✅ STEP 4: Show success
         successEl.classList.add('show');
 
+        // ✅ STEP 5: Redirect after auth state is fully set
+        // Wait for 1.5 seconds to ensure Firebase Auth state propagates
         setTimeout(() => {
-            console.log('🔄 Redirecting to dashboard...');
-            window.location.href = 'index.html';
-        }, 1000);
+            // ✅ Double check that user is still logged in
+            if (auth.currentUser) {
+                console.log('🔄 Auth state confirmed, redirecting to dashboard...');
+                window.location.href = 'index.html';
+            } else {
+                console.log('⏳ Auth state not ready, waiting...');
+                // Wait for auth state change
+                const unsubscribe = auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        unsubscribe();
+                        console.log('🔄 Auth state ready, redirecting to dashboard...');
+                        window.location.href = 'index.html';
+                    }
+                });
+                // Timeout fallback
+                setTimeout(() => {
+                    unsubscribe();
+                    console.log('🔄 Timeout fallback, redirecting to dashboard...');
+                    window.location.href = 'index.html';
+                }, 3000);
+            }
+        }, 1500);
 
     } catch(err) {
         console.error('❌ Login error:', err.code, err.message);
@@ -246,6 +280,7 @@ async function handleLogin(event) {
     }
 }
 
+// ==================== ENTER KEY SUPPORT ====================
 document.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         const active = document.activeElement;
@@ -255,15 +290,39 @@ document.addEventListener('keypress', (e) => {
     }
 });
 
+// ==================== CHECK EXISTING SESSION ====================
 function checkExistingSession() {
     const session = localStorage.getItem('adminSession');
     if (!session) return false;
+    
     try {
         const admin = JSON.parse(session);
         if (admin.expiresAt && new Date(admin.expiresAt) > new Date()) {
-            console.log('✅ Existing session found, redirecting to dashboard');
-            window.location.href = 'index.html';
-            return true;
+            // ✅ Session exists, check if Firebase auth state is also active
+            // If not, wait for it
+            if (auth.currentUser) {
+                console.log('✅ Existing session with active auth, redirecting to dashboard');
+                window.location.href = 'index.html';
+                return true;
+            } else {
+                console.log('⏳ Session exists but auth not ready, waiting...');
+                const unsubscribe = auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        unsubscribe();
+                        console.log('✅ Auth ready, redirecting to dashboard');
+                        window.location.href = 'index.html';
+                    }
+                });
+                // Timeout fallback
+                setTimeout(() => {
+                    unsubscribe();
+                    if (auth.currentUser) {
+                        console.log('✅ Auth ready (timeout), redirecting to dashboard');
+                        window.location.href = 'index.html';
+                    }
+                }, 3000);
+                return true;
+            }
         } else {
             localStorage.removeItem('adminSession');
         }
@@ -273,13 +332,20 @@ function checkExistingSession() {
     return false;
 }
 
+// ==================== INIT ====================
 function init() {
     initFirebase();
-    if (checkExistingSession()) return;
-    document.getElementById('adminEmail').focus();
-    console.log('✅ Login page ready');
-    console.log('📧 Email: rkv858810@gmail.com');
-    console.log('🔑 Password: 123@Randigital');
+    
+    // Wait for auth state before checking session
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+        unsubscribe();
+        if (!checkExistingSession()) {
+            document.getElementById('adminEmail').focus();
+            console.log('✅ Login page ready');
+            console.log('📧 Email: rkv858810@gmail.com');
+            console.log('🔑 Password: 123@Randigital');
+        }
+    });
 }
 
 if (document.readyState === 'loading') {
