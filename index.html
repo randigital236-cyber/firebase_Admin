@@ -6,21 +6,13 @@
     <title>RND Backup - Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        /* ==================== RESET & BASE ==================== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, sans-serif;
             background: #0f172a;
             color: #e2e8f0;
             min-height: 100vh;
         }
-
-        /* ==================== HEADER ==================== */
         .header {
             background: #1e293b;
             border-bottom: 1px solid #334155;
@@ -34,41 +26,12 @@
             top: 0;
             z-index: 100;
         }
-
-        .header h1 {
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .header h1 span {
-            color: #6366f1;
-        }
-
-        .header h1 .badge {
-            font-size: 0.6rem;
-            background: rgba(99, 102, 241, 0.2);
-            color: #818cf8;
-            padding: 2px 12px;
-            border-radius: 20px;
-            font-weight: 400;
-        }
-
-        .header .user {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header .user .email {
-            font-size: 0.85rem;
-            color: #94a3b8;
-        }
-
+        .header h1 { font-size: 1.2rem; display: flex; align-items: center; gap: 10px; }
+        .header h1 span { color: #6366f1; }
+        .header .user { display: flex; align-items: center; gap: 12px; }
+        .header .user .email { font-size: 0.85rem; color: #94a3b8; }
         .header .user .avatar {
-            width: 36px;
-            height: 36px;
+            width: 36px; height: 36px;
             border-radius: 50%;
             background: linear-gradient(135deg, #6366f1, #4f46e5);
             display: flex;
@@ -78,80 +41,36 @@
             font-size: 0.9rem;
             color: white;
         }
-
         .header .user .logout-btn {
-            background: none;
-            border: none;
-            color: #94a3b8;
-            cursor: pointer;
-            font-size: 1rem;
-            padding: 8px;
-            border-radius: 8px;
+            background: none; border: none;
+            color: #94a3b8; cursor: pointer;
+            font-size: 1rem; padding: 8px; border-radius: 8px;
             transition: all 0.3s;
         }
+        .header .user .logout-btn:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+        .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
 
-        .header .user .logout-btn:hover {
-            color: #ef4444;
-            background: rgba(239, 68, 68, 0.1);
-        }
-
-        .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 6px;
-        }
-        .status-dot.online { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
-        .status-dot.offline { background: #ef4444; box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
-
-        /* ==================== CONTAINER ==================== */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-
-        /* ==================== STATS ==================== */
+        /* STATS */
         .stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 16px;
             margin-bottom: 24px;
         }
-
         .stat-card {
             background: #1e293b;
             border: 1px solid #334155;
             border-radius: 12px;
             padding: 20px;
             text-align: center;
-            transition: all 0.3s;
         }
-
-        .stat-card:hover {
-            border-color: #6366f1;
-            transform: translateY(-2px);
-        }
-
-        .stat-card .num {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #6366f1;
-            line-height: 1.2;
-        }
-
-        .stat-card .label {
-            color: #94a3b8;
-            font-size: 0.8rem;
-            margin-top: 4px;
-        }
-
-        .stat-card .num.danger { color: #ef4444; }
+        .stat-card .num { font-size: 2rem; font-weight: 700; color: #6366f1; }
         .stat-card .num.success { color: #10b981; }
+        .stat-card .num.danger { color: #ef4444; }
         .stat-card .num.warning { color: #f59e0b; }
+        .stat-card .label { color: #94a3b8; font-size: 0.8rem; margin-top: 4px; }
 
-        /* ==================== CARDS ==================== */
+        /* CARDS */
         .card {
             background: #1e293b;
             border: 1px solid #334155;
@@ -159,132 +78,37 @@
             padding: 24px;
             margin-bottom: 24px;
         }
+        .card-title { font-size: 1rem; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+        .card-title i { color: #6366f1; }
 
-        .card .card-title {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .card .card-title i {
-            color: #6366f1;
-        }
-
-        .card .card-subtitle {
-            color: #94a3b8;
-            font-size: 0.85rem;
-            margin-bottom: 12px;
-        }
-
-        .card .card-divider {
-            border: none;
-            border-top: 1px solid #334155;
-            margin: 16px 0;
-        }
-
-        /* ==================== BUTTONS ==================== */
+        /* BUTTONS */
         .btn {
-            padding: 10px 22px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 600;
+            padding: 12px 24px; border: none; border-radius: 10px;
+            cursor: pointer; font-size: 0.9rem; font-weight: 600;
             transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
+            display: inline-flex; align-items: center; gap: 8px;
         }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-primary { background: #6366f1; color: white; }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-warning:hover { background: #d97706; }
+        .btn-outline { background: transparent; border: 1px solid #334155; color: #e2e8f0; }
+        .btn-outline:hover { border-color: #6366f1; color: #6366f1; }
+        .btn-sm { padding: 6px 14px; font-size: 0.75rem; }
 
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
-        }
+        .flex { display: flex; gap: 12px; flex-wrap: wrap; }
 
-        .btn:active {
-            transform: scale(0.95);
-        }
-
-        .btn-success {
-            background: #10b981;
-            color: white;
-        }
-        .btn-success:hover {
-            background: #059669;
-            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
-        }
-
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-        }
-        .btn-danger:hover {
-            background: #dc2626;
-            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
-        }
-
-        .btn-primary {
-            background: #6366f1;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #4f46e5;
-            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-        }
-
-        .btn-warning {
-            background: #f59e0b;
-            color: white;
-        }
-        .btn-warning:hover {
-            background: #d97706;
-            box-shadow: 0 4px 16px rgba(245, 158, 11, 0.3);
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #334155;
-            color: #e2e8f0;
-        }
-        .btn-outline:hover {
-            border-color: #6366f1;
-            color: #6366f1;
-            background: rgba(99, 102, 241, 0.05);
-        }
-
-        .btn-sm {
-            padding: 6px 14px;
-            font-size: 0.75rem;
-            border-radius: 8px;
-        }
-
-        .btn-lg {
-            padding: 14px 32px;
-            font-size: 1rem;
-        }
-
-        .flex {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        /* ==================== SEARCH BOX ==================== */
+        /* SEARCH */
         .search-box {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
+            display: flex; gap: 12px; flex-wrap: wrap;
         }
-
         .search-box input {
-            flex: 1;
-            min-width: 200px;
+            flex: 1; min-width: 250px;
             padding: 12px 16px;
             background: #0f172a;
             border: 1px solid #334155;
@@ -292,597 +116,199 @@
             color: #e2e8f0;
             font-size: 0.9rem;
             outline: none;
-            transition: all 0.3s;
         }
+        .search-box input:focus { border-color: #6366f1; }
 
-        .search-box input:focus {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        .search-box input::placeholder {
-            color: #64748b;
-        }
-
-        /* ==================== ALERTS ==================== */
+        /* ALERTS */
         .alert {
-            padding: 16px 20px;
-            border-radius: 12px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            animation: slideIn 0.3s ease;
+            padding: 16px 20px; border-radius: 12px; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 12px;
         }
+        .alert-success { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); color: #6ee7b7; }
+        .alert-danger { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; }
+        .alert-warning { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: #fcd34d; }
 
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* PROGRESS */
+        .progress-container { margin: 12px 0; }
+        .progress-bar { height: 8px; background: #0f172a; border-radius: 4px; overflow: hidden; }
+        .progress-fill {
+            height: 100%; background: linear-gradient(90deg, #6366f1, #818cf8);
+            border-radius: 4px; transition: width 0.5s ease; width: 0%;
         }
+        .progress-text { text-align: center; margin-top: 6px; color: #94a3b8; font-size: 0.85rem; }
 
-        .alert i {
-            font-size: 1.2rem;
-            margin-top: 2px;
-        }
+        .hidden { display: none !important; }
 
-        .alert-danger {
-            background: rgba(239, 68, 68, 0.08);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            color: #fca5a5;
+        /* TOAST */
+        .notification-toast {
+            position: fixed; top: 24px; right: 24px;
+            padding: 16px 24px; border-radius: 12px;
+            color: white; font-weight: 600; z-index: 9999;
+            transform: translateX(120%);
+            transition: transform 0.4s ease;
+            max-width: 420px;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.5);
         }
+        .notification-toast.show { transform: translateX(0); }
+        .notification-toast.success { background: #10b981; }
+        .notification-toast.error { background: #ef4444; }
+        .notification-toast.warning { background: #f59e0b; }
 
-        .alert-success {
-            background: rgba(16, 185, 129, 0.08);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            color: #6ee7b7;
+        /* CONFIRM */
+        .confirm-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center; z-index: 9998;
         }
+        .confirm-overlay.active { display: flex; }
+        .confirm-dialog {
+            background: #1e293b; border: 1px solid #334155;
+            border-radius: 16px; padding: 32px; max-width: 450px; width: 90%;
+        }
+        .confirm-dialog .icon { font-size: 3rem; text-align: center; margin-bottom: 16px; }
+        .confirm-dialog .icon.warning { color: #f59e0b; }
+        .confirm-dialog .icon.danger { color: #ef4444; }
+        .confirm-dialog h3 { text-align: center; margin-bottom: 8px; }
+        .confirm-dialog p { color: #94a3b8; text-align: center; margin-bottom: 20px; }
+        .confirm-dialog .btn-group { display: flex; gap: 12px; justify-content: center; }
+        .confirm-dialog .btn-group .btn { min-width: 100px; justify-content: center; }
 
-        .alert-warning {
-            background: rgba(245, 158, 11, 0.08);
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            color: #fcd34d;
-        }
-
-        .alert-info {
-            background: rgba(59, 130, 246, 0.08);
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            color: #93c5fd;
-        }
-
-        /* ==================== TABLE ==================== */
-        .table-responsive {
-            overflow-x: auto;
-            border-radius: 12px;
-            border: 1px solid #334155;
-        }
-
-        .table-responsive table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-
-        .table-responsive th {
-            background: #0f172a;
-            padding: 12px 16px;
-            text-align: left;
-            color: #94a3b8;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid #334155;
-        }
-
-        .table-responsive td {
-            padding: 12px 16px;
-            border-bottom: 1px solid #334155;
-            vertical-align: middle;
-        }
-
-        .table-responsive tr:last-child td {
-            border-bottom: none;
-        }
-
-        .table-responsive tr:hover {
-            background: rgba(99, 102, 241, 0.03);
-        }
-
-        /* ==================== TAGS ==================== */
-        .tag {
-            display: inline-block;
-            padding: 4px 14px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .tag-success {
-            background: rgba(16, 185, 129, 0.15);
-            color: #10b981;
-        }
-        .tag-danger {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-        }
-        .tag-warning {
-            background: rgba(245, 158, 11, 0.15);
-            color: #f59e0b;
-        }
-        .tag-info {
-            background: rgba(59, 130, 246, 0.15);
-            color: #3b82f6;
-        }
-
-        /* ==================== SPINNER ==================== */
+        /* SPINNER */
         .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid transparent;
-            border-top-color: currentColor;
+            width: 20px; height: 20px;
+            border: 2px solid transparent; border-top-color: currentColor;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
             display: inline-block;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .spinner-sm {
-            width: 14px;
-            height: 14px;
-            border-width: 2px;
-        }
+        /* EMPTY */
+        .empty-state { text-align: center; padding: 40px; color: #94a3b8; }
+        .empty-state i { font-size: 3rem; margin-bottom: 16px; opacity: 0.3; }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+        /* TABLE */
+        .table-responsive { overflow-x: auto; border-radius: 12px; border: 1px solid #334155; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { background: #0f172a; padding: 12px 16px; text-align: left; color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; }
+        td { padding: 12px 16px; border-top: 1px solid #334155; }
+        .tag {
+            display: inline-block; padding: 4px 14px; border-radius: 20px;
+            font-size: 0.75rem; font-weight: 600;
         }
+        .tag-success { background: rgba(16,185,129,0.15); color: #10b981; }
+        .tag-danger { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .tag-warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
 
-        /* ==================== PROGRESS ==================== */
-        .progress-container {
-            margin: 12px 0;
-        }
-
-        .progress-bar {
-            height: 8px;
-            background: #0f172a;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #6366f1, #818cf8);
-            border-radius: 4px;
-            transition: width 0.5s ease;
-            width: 0%;
-        }
-
-        .progress-text {
-            text-align: center;
-            margin-top: 6px;
-            color: #94a3b8;
-            font-size: 0.85rem;
-        }
-
-        .progress-text .highlight {
-            color: #e2e8f0;
-            font-weight: 600;
-        }
-
-        /* ==================== EMPTY STATE ==================== */
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #94a3b8;
-        }
-
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 16px;
-            opacity: 0.3;
-        }
-
-        .empty-state h3 {
-            color: #e2e8f0;
-            margin-bottom: 8px;
-        }
-
-        .empty-state p {
-            font-size: 0.9rem;
-        }
-
-        /* ==================== LOG ENTRY ==================== */
-        .log-entry {
-            padding: 10px 16px;
-            border-bottom: 1px solid #334155;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.85rem;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .log-entry:last-child {
-            border-bottom: none;
-        }
-
-        .log-entry .log-time {
-            color: #94a3b8;
-            font-size: 0.75rem;
-            font-family: monospace;
-        }
-
-        .log-entry .log-badge {
-            padding: 2px 12px;
-            border-radius: 12px;
-            font-size: 0.65rem;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .log-entry .log-badge.success {
-            background: rgba(16, 185, 129, 0.15);
-            color: #10b981;
-        }
-
-        .log-entry .log-badge.failed {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-        }
-
-        .log-entry .log-badge.warning {
-            background: rgba(245, 158, 11, 0.15);
-            color: #f59e0b;
-        }
-
-        .log-entry .log-badge.info {
-            background: rgba(59, 130, 246, 0.15);
-            color: #3b82f6;
-        }
-
-        /* ==================== HIDDEN ==================== */
-        .hidden {
-            display: none !important;
-        }
-
-        /* ==================== NOTIFICATION TOAST ==================== */
-        .notification-toast {
-            position: fixed;
-            top: 24px;
-            right: 24px;
-            padding: 16px 24px;
-            border-radius: 12px;
-            color: white;
-            font-weight: 600;
-            z-index: 9999;
-            transform: translateX(120%);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            max-width: 420px;
-            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-        }
-
-        .notification-toast.show {
-            transform: translateX(0);
-        }
-
-        .notification-toast.success {
-            background: #10b981;
-        }
-        .notification-toast.error {
-            background: #ef4444;
-        }
-        .notification-toast.warning {
-            background: #f59e0b;
-        }
-        .notification-toast.info {
-            background: #3b82f6;
-        }
-
-        /* ==================== CONFIRM DIALOG ==================== */
-        .confirm-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(4px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 9998;
-        }
-
-        .confirm-overlay.active {
-            display: flex;
-        }
-
-        .confirm-dialog {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 16px;
-            padding: 32px;
-            max-width: 450px;
-            width: 90%;
-            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
-            animation: slideUp 0.3s ease;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .confirm-dialog .icon {
-            font-size: 3rem;
-            text-align: center;
-            margin-bottom: 16px;
-        }
-
-        .confirm-dialog .icon.warning {
-            color: #f59e0b;
-        }
-        .confirm-dialog .icon.danger {
-            color: #ef4444;
-        }
-        .confirm-dialog .icon.info {
-            color: #6366f1;
-        }
-
-        .confirm-dialog h3 {
-            text-align: center;
-            margin-bottom: 8px;
-        }
-
-        .confirm-dialog p {
-            color: #94a3b8;
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-        }
-
-        .confirm-dialog .btn-group {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-        }
-
-        .confirm-dialog .btn-group .btn {
-            min-width: 100px;
-            justify-content: center;
-        }
-
-        /* ==================== RESPONSIVE ==================== */
         @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 12px 16px;
-            }
-
-            .header .user {
-                width: 100%;
-                justify-content: flex-start;
-            }
-
-            .stats {
-                grid-template-columns: 1fr 1fr;
-                gap: 12px;
-            }
-
-            .container {
-                padding: 16px;
-            }
-
-            .card {
-                padding: 16px;
-            }
-
-            .search-box {
-                flex-direction: column;
-            }
-
-            .flex {
-                flex-direction: column;
-            }
-
-            .flex .btn {
-                width: 100%;
-                justify-content: center;
-            }
-
-            .log-entry {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 4px;
-            }
-
-            .table-responsive {
-                font-size: 0.8rem;
-            }
-
-            .table-responsive th,
-            .table-responsive td {
-                padding: 8px 10px;
-            }
-
-            .notification-toast {
-                top: 12px;
-                right: 12px;
-                left: 12px;
-                max-width: none;
-                font-size: 0.9rem;
-            }
+            .stats { grid-template-columns: 1fr 1fr; }
+            .flex { flex-direction: column; }
+            .flex .btn { width: 100%; justify-content: center; }
+            .search-box { flex-direction: column; }
+            .search-box input { min-width: auto; }
         }
-
         @media (max-width: 480px) {
-            .stats {
-                grid-template-columns: 1fr;
-            }
-
-            .header h1 {
-                font-size: 1rem;
-            }
-
-            .stat-card .num {
-                font-size: 1.5rem;
-            }
+            .stats { grid-template-columns: 1fr; }
+            .header { flex-direction: column; align-items: flex-start; }
         }
     </style>
 </head>
 <body>
 
-    <!-- ==================== CONFIRM DIALOG ==================== -->
-    <div class="confirm-overlay" id="confirmOverlay">
-        <div class="confirm-dialog">
-            <div class="icon" id="confirmIcon">⚠️</div>
-            <h3 id="confirmTitle">Are you sure?</h3>
-            <p id="confirmMessage">This action cannot be undone.</p>
-            <div class="btn-group">
-                <button class="btn btn-outline" onclick="closeConfirm()">Cancel</button>
-                <button class="btn btn-danger" id="confirmBtn" onclick="executeConfirmed()">Confirm</button>
-            </div>
+<!-- CONFIRM DIALOG -->
+<div class="confirm-overlay" id="confirmOverlay">
+    <div class="confirm-dialog">
+        <div class="icon" id="confirmIcon">⚠️</div>
+        <h3 id="confirmTitle">Are you sure?</h3>
+        <p id="confirmMessage">This action cannot be undone.</p>
+        <div class="btn-group">
+            <button class="btn btn-outline" onclick="closeConfirm()">Cancel</button>
+            <button class="btn btn-danger" id="confirmBtn" onclick="executeConfirmed()">Confirm</button>
         </div>
     </div>
+</div>
 
-    <!-- ==================== NOTIFICATION ==================== -->
-    <div class="notification-toast" id="notification"></div>
+<!-- NOTIFICATION -->
+<div class="notification-toast" id="notification"></div>
 
-    <!-- ==================== HEADER ==================== -->
-    <header class="header">
-        <h1>
-            <i class="fas fa-shield-halved" style="color:#6366f1;"></i>
-            RND <span>Backup</span>
-            <span class="badge">v2.1</span>
-        </h1>
-        <div class="user">
-            <span class="email" id="adminEmailDisplay">admin@rnd.com</span>
-            <span id="statusDot" class="status-dot online"></span>
-            <div class="avatar" id="adminAvatar">A</div>
-            <button class="logout-btn" onclick="adminLogout()" title="Logout">
-                <i class="fas fa-sign-out-alt"></i>
+<!-- HEADER -->
+<header class="header">
+    <h1><i class="fas fa-shield-halved" style="color:#6366f1;"></i> RND <span>Backup</span></h1>
+    <div class="user">
+        <span class="email" id="adminEmail">admin@rnd.com</span>
+        <div class="avatar" id="adminAvatar">A</div>
+        <button class="logout-btn" onclick="adminLogout()" title="Logout">
+            <i class="fas fa-sign-out-alt"></i>
+        </button>
+    </div>
+</header>
+
+<!-- MAIN -->
+<div class="container">
+
+    <!-- STATS -->
+    <div class="stats">
+        <div class="stat-card"><div class="num" id="mainUsers">0</div><div class="label">Main Users</div></div>
+        <div class="stat-card"><div class="num success" id="backupUsers">0</div><div class="label">Backup Users</div></div>
+        <div class="stat-card"><div class="num" id="statusCount">--</div><div class="label">Status</div></div>
+        <div class="stat-card"><div class="num" id="lastBackupTime">--</div><div class="label">Last Backup</div></div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="card">
+        <div class="card-title"><i class="fas fa-bolt"></i> Quick Actions</div>
+        <div class="flex">
+            <button class="btn btn-success" onclick="confirmBackup()">
+                <i class="fas fa-rotate"></i> Backup All Data
+            </button>
+            <button class="btn btn-danger" onclick="confirmRestoreAll()">
+                <i class="fas fa-database"></i> Restore Full Database
+            </button>
+            <button class="btn btn-primary" onclick="checkStatus()">
+                <i class="fas fa-heart-pulse"></i> Check Status
+            </button>
+            <button class="btn btn-outline" onclick="clearLogs()">
+                <i class="fas fa-times"></i> Clear Logs
             </button>
         </div>
-    </header>
-
-    <!-- ==================== MAIN CONTENT ==================== -->
-    <div class="container">
-
-        <!-- ALERTS -->
-        <div id="alertContainer"></div>
-
-        <!-- STATS -->
-        <div class="stats">
-            <div class="stat-card">
-                <div class="num" id="totalUsers">0</div>
-                <div class="label">Total Users</div>
-            </div>
-            <div class="stat-card">
-                <div class="num success" id="backupUsers">0</div>
-                <div class="label">Backup Users</div>
-            </div>
-            <div class="stat-card">
-                <div class="num warning" id="lastSyncTime">--</div>
-                <div class="label">Last Sync</div>
-            </div>
-            <div class="stat-card">
-                <div class="num danger" id="deletedCount">0</div>
-                <div class="label">Deleted Users</div>
+        <div id="progressContainer" class="hidden" style="margin-top:12px;">
+            <div class="progress-container">
+                <div class="progress-bar"><div class="progress-fill" id="progressBar"></div></div>
+                <div class="progress-text" id="progressText">Processing...</div>
             </div>
         </div>
-
-        <!-- QUICK ACTIONS -->
-        <div class="card">
-            <div class="card-title"><i class="fas fa-bolt"></i> Quick Actions</div>
-            <div class="flex">
-                <button class="btn btn-success" onclick="confirmBackup()">
-                    <i class="fas fa-rotate"></i> Backup Now
-                </button>
-                <button class="btn btn-danger" onclick="confirmRestoreAll()">
-                    <i class="fas fa-database"></i> Restore All Database
-                </button>
-                <button class="btn btn-primary" onclick="checkBackupStatus()">
-                    <i class="fas fa-heart-pulse"></i> Check Status
-                </button>
-                <button class="btn btn-warning" onclick="loadDeletedUsers()">
-                    <i class="fas fa-trash"></i> Check Deleted
-                </button>
-                <button class="btn btn-outline" onclick="clearAllLogs()">
-                    <i class="fas fa-times"></i> Clear Logs
-                </button>
-            </div>
-            <div id="syncProgress" class="hidden" style="margin-top:12px;">
-                <div class="progress-container">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="syncProgressBar"></div>
-                    </div>
-                    <div class="progress-text" id="syncProgressText">Syncing...</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- RESTORE DELETED USER -->
-        <div class="card">
-            <div class="card-title"><i class="fas fa-rotate-left"></i> Restore Deleted User</div>
-            <div class="card-subtitle">
-                जिस User का Data Delete हो गया है, उसका UID डालें और Restore करें
-            </div>
-            <div class="search-box">
-                <input type="text" id="restoreUid" placeholder="Enter UID to restore..." />
-                <button class="btn btn-danger" onclick="confirmRestoreUser()">
-                    <i class="fas fa-rotate-left"></i> Restore User
-                </button>
-            </div>
-            <div id="restoreResult"></div>
-        </div>
-
-        <!-- DELETED USERS LIST -->
-        <div class="card">
-            <div class="card-title"><i class="fas fa-trash-can"></i> Deleted Users</div>
-            <div id="deletedUsersList">
-                <div class="empty-state">
-                    <i class="fas fa-check-circle"></i>
-                    <p>No deleted users found</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- RECENT ACTIVITY -->
-        <div class="card">
-            <div class="card-title"><i class="fas fa-clock-rotate-left"></i> Recent Activity</div>
-            <div id="recentLogs">
-                <div class="empty-state">
-                    <i class="fas fa-clock"></i>
-                    <p>No activity yet</p>
-                </div>
-            </div>
-        </div>
-
     </div>
 
-    <!-- ==================== FIREBASE SDK ==================== -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js">
-    </script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
-    </script>
+    <!-- RESTORE ONE USER -->
+    <div class="card">
+        <div class="card-title"><i class="fas fa-rotate-left"></i> Restore One User</div>
+        <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:12px;">Delete हुए User का UID डालें और Restore करें</p>
+        <div class="search-box">
+            <input type="text" id="restoreUid" placeholder="Enter UID to restore..." />
+            <button class="btn btn-danger" onclick="confirmRestoreUser()">
+                <i class="fas fa-rotate-left"></i> Restore User
+            </button>
+        </div>
+        <div id="restoreResult"></div>
+    </div>
 
-    <!-- ==================== ADMIN.JS ==================== -->
-    <script src="admin.js">
-    </script>
+    <!-- ACTIVITY LOG -->
+    <div class="card">
+        <div class="card-title"><i class="fas fa-clock-rotate-left"></i> Activity Log</div>
+        <div id="activityLog">
+            <div class="empty-state"><i class="fas fa-clock"></i><p>No activity yet</p></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- FIREBASE SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+<!-- ADMIN.JS -->
+<script src="admin.js"></script>
 
 </body>
 </html>
