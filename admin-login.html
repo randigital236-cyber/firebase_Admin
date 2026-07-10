@@ -74,7 +74,6 @@
             font-size: 0.9rem;
         }
 
-        /* ===== DEMO CREDENTIALS - COMPLETELY HIDDEN ===== */
         .demo-cred {
             display: none !important;
         }
@@ -212,12 +211,6 @@
             <p>Admin Panel • Secure Access</p>
         </div>
 
-        <!-- DEMO CREDENTIALS - HIDDEN -->
-        <div class="demo-cred">
-            <p>Your Admin Credentials</p>
-            <div class="cred">Email: rkv858810@gmail.com | Password: 123@Randigital</div>
-        </div>
-
         <!-- ERROR / SUCCESS MESSAGES -->
         <div class="error-message" id="errorMessage">❌ Invalid credentials</div>
         <div class="success-message" id="successMessage">✅ Login successful! Redirecting...</div>
@@ -264,8 +257,6 @@
     </script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js">
     </script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js">
-    </script>
 
     <script>
         // ==================== FIREBASE CONFIG ====================
@@ -279,14 +270,8 @@
             appId: "1:468625887938:web:5cb4ddbcf31b6fc0a4615b"
         };
 
-        // ==================== SUPER ADMINS ====================
-        const SUPER_ADMINS = [
-            'rkv858810@gmail.com',
-            'admin@rnd.com'
-        ];
-
         // ==================== INITIALIZE ====================
-        let app, auth, db;
+        let app, auth;
 
         function initFirebase() {
             try {
@@ -295,25 +280,7 @@
                 app = firebase.app();
             }
             auth = firebase.auth(app);
-            db = firebase.database(app);
             console.log('✅ Firebase initialized');
-        }
-
-        // ==================== CHECK ADMIN ====================
-        async function checkAdmin(uid, email) {
-            try {
-                // Check Super Admin list
-                if (SUPER_ADMINS.includes(email)) {
-                    return true;
-                }
-
-                // Check Firebase admins node
-                const snap = await db.ref('admins/' + uid).once('value');
-                return snap.val() === true;
-            } catch(e) {
-                console.error('Admin check error:', e);
-                return false;
-            }
         }
 
         // ==================== HANDLE LOGIN ====================
@@ -350,7 +317,7 @@
             successEl.classList.remove('show');
 
             try {
-                // Sign in with Firebase Auth
+                // ========== ✅ सिर्फ Email/Password Authentication ==========
                 const result = await auth.signInWithEmailAndPassword(email, password);
                 const user = result.user;
 
@@ -358,17 +325,9 @@
                     throw new Error('Authentication failed');
                 }
 
-                // Check admin status
-                const isAdmin = await checkAdmin(user.uid, email);
-
-                if (!isAdmin) {
-                    await auth.signOut();
-                    errorEl.textContent = '⛔ Unauthorized: You do not have admin access.';
-                    errorEl.classList.add('show');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
-                    return;
-                }
+                // ✅ कोई Super Admin Check नहीं!
+                // ✅ कोई UID Check नहीं!
+                // ✅ बस Authentication हो गया → Login Success!
 
                 // Create session
                 const adminSession = {
@@ -386,7 +345,7 @@
                 // Show success
                 successEl.classList.add('show');
 
-                // Redirect after delay
+                // Redirect
                 setTimeout(() => {
                     window.location.href = 'index.html';
                 }, 1000);
@@ -458,7 +417,7 @@
             console.log('✅ Login page ready');
             console.log('📧 Email: rkv858810@gmail.com');
             console.log('🔑 Password: 123@Randigital');
-            console.log('✅ Credentials are NOT displayed on page');
+            console.log('✅ सिर्फ Authentication Check - कोई Super Admin नहीं!');
         }
 
         // Initialize
