@@ -1,8 +1,6 @@
 // ==================== RND BACKUP SYSTEM v2.1 - COMPLETE FIXED ====================
-// ✅ FIXED: init() order - Firebase first, then session check
-// ✅ FIXED: auth.onAuthStateChanged - No premature redirect
-// ✅ FIXED: checkSession() - Local Storage first
-// ✅ FIXED: Session stays after page refresh
+// ✅ FIXED: Auth state verified before any database access
+// ✅ FIXED: Session check with auth state confirmation
 
 // ==================== FIREBASE CONFIG ====================
 const MAIN_CONFIG = {
@@ -25,7 +23,6 @@ const SYNC_PATHS = ['users', 'deposits', 'withdrawals', 'usedTransactions', 'pro
 let mainApp, backupApp, mainDB, backupDB, auth;
 let currentAdmin = null;
 let pendingAction = null;
-let authInitialized = false;
 
 // ==================== INITIALIZE FIREBASE ====================
 function initFirebase() {
@@ -46,7 +43,6 @@ function initFirebase() {
     auth = firebase.auth(mainApp);
 
     console.log('✅ Firebase initialized');
-    authInitialized = true;
 }
 
 // ==================== UPDATE ADMIN UI ====================
@@ -59,19 +55,28 @@ function updateAdminUI() {
     }
 }
 
-// ==================== SESSION MANAGEMENT ====================
+// ==================== SESSION MANAGEMENT (WITH AUTH VERIFICATION) ====================
 function checkSession() {
-    // ✅ पहले Local Storage देखें
+    // ✅ STEP 1: Check localStorage
     let session = localStorage.getItem('adminSession');
     
     if (session) {
         try {
             const admin = JSON.parse(session);
             if (admin.expiresAt && new Date(admin.expiresAt) > new Date()) {
-                currentAdmin = admin;
-                updateAdminUI();
-                console.log('✅ Session found in localStorage:', admin.email);
-                return true;
+                // ✅ STEP 2: Verify Firebase Auth state
+                if (auth && auth.currentUser) {
+                    // ✅ Both session and auth exist - valid
+                    currentAdmin = admin;
+                    updateAdminUI();
+                    console.log('✅ Session and Auth verified:', admin.email);
+                    return true;
+                } else {
+                    // ✅ Session exists but auth not ready - wait
+                    console.log('⏳ Session exists, waiting for auth state...');
+                    // We'll handle this in the auth listener
+                    return false;
+                }
             } else {
                 localStorage.removeItem('adminSession');
                 console.log('⏰ Session expired');
@@ -82,7 +87,7 @@ function checkSession() {
         }
     }
 
-    // ✅ अगर Local Storage में नहीं, तो Firebase Auth देखें
+    // ✅ STEP 3: Check Firebase Auth directly
     if (auth && auth.currentUser) {
         const user = auth.currentUser;
         const adminSession = {
@@ -99,16 +104,8 @@ function checkSession() {
         return true;
     }
 
-    // ❌ कोई Session नहीं
-    console.log('❌ No session found');
+    console.log('❌ No valid session found');
     return false;
-}
-
-function adminLogout() {
-    if (!confirm('Are you sure you want to logout?')) return;
-    localStorage.removeItem('adminSession');
-    if (auth) auth.signOut();
-    window.location.href = 'admin-login.html';
 }
 
 // ==================== AUTH STATE LISTENER (FIXED) ====================
@@ -119,8 +116,8 @@ function setupAuthListener() {
         if (user) {
             console.log('✅ Auth State: User logged in:', user.email);
             
-            // ✅ Session बनाएं या Update करें
-            const session = localStorage.getItem('adminSession');
+            // ✅ Create/Update session
+            let session = localStorage.getItem('adminSession');
             if (!session) {
                 const adminSession = {
                     uid: user.uid,
@@ -137,7 +134,6 @@ function setupAuthListener() {
                 try {
                     const admin = JSON.parse(session);
                     if (admin.email !== user.email) {
-                        // Email mismatch - update session
                         const adminSession = {
                             uid: user.uid,
                             email: user.email,
@@ -152,26 +148,63 @@ function setupAuthListener() {
                 } catch(e) {}
             }
             
-            // ✅ अगर Login Page पर है तो Dashboard पर Redirect करें
+            // ✅ If on login page, redirect to dashboard
             if (window.location.pathname.includes('admin-login.html')) {
                 window.location.href = 'index.html';
+            }
+            
+            // ✅ If dashboard is loaded, refresh data
+            if (!window.location.pathname.includes('admin-login.html') && !window.location.pathname.includes('login')) {
+                loadDashboardData();
             }
             
         } else {
             console.log('❌ Auth State: No user');
             
-            // ✅ अगर Session है तो Redirect मत करें (Wait for session check)
+            // ✅ Clear session if exists
             if (localStorage.getItem('adminSession')) {
-                console.log('⏳ Session exists, waiting for checkSession()');
-                return;
+                localStorage.removeItem('adminSession');
+                console.log('🗑️ Session cleared');
             }
             
-            // ✅ अगर Login Page पर नहीं हैं तो Redirect करें
-            if (!window.location.pathname.includes('admin-login.html')) {
+            // ✅ Redirect to login if not already there
+            if (!window.location.pathname.includes('admin-login.html') && 
+                !window.location.pathname.includes('login')) {
                 window.location.href = 'admin-login.html';
             }
         }
     });
+}
+
+// ==================== LOAD DASHBOARD DATA ====================
+async function loadDashboardData() {
+    try {
+        console.log('📊 Loading dashboard data...');
+        await loadStats();
+        renderLogs();
+        await loadDeletedUsers();
+        updateStatusDot();
+        console.log('✅ Dashboard data loaded');
+    } catch(e) {
+        console.error('❌ Dashboard data error:', e);
+        // If permission denied, auth might not be ready
+        if (e.message && e.message.includes('permission_denied')) {
+            console.log('⚠️ Permission denied - auth might not be ready, retrying...');
+            setTimeout(() => {
+                if (auth && auth.currentUser) {
+                    loadDashboardData();
+                }
+            }, 2000);
+        }
+    }
+}
+
+// ==================== ADMIN LOGOUT ====================
+function adminLogout() {
+    if (!confirm('Are you sure you want to logout?')) return;
+    localStorage.removeItem('adminSession');
+    if (auth) auth.signOut();
+    window.location.href = 'admin-login.html';
 }
 
 // ==================== NOTIFICATION ====================
@@ -303,6 +336,12 @@ function executeConfirmed() {
 
 // ==================== LOAD STATS ====================
 async function loadStats() {
+    // ✅ Check auth before accessing database
+    if (!auth || !auth.currentUser) {
+        console.log('⏳ Auth not ready, skipping stats load');
+        return;
+    }
+    
     try {
         const mainSnap = await mainDB.ref('users').once('value');
         const backupSnap = await backupDB.ref('users').once('value');
@@ -322,6 +361,14 @@ async function loadStats() {
 
     } catch(e) {
         console.error('Stats error:', e);
+        // Retry if permission denied
+        if (e.message && e.message.includes('permission_denied')) {
+            setTimeout(() => {
+                if (auth && auth.currentUser) {
+                    loadStats();
+                }
+            }, 2000);
+        }
     }
 }
 
@@ -786,44 +833,55 @@ function setupKeyboardShortcuts() {
     }
 }
 
-// ==================== INIT (FIXED ORDER) ====================
-async function init() {
+// ==================== INIT ====================
+function init() {
     console.log('🚀 Starting RND Backup System...');
 
-    // ✅ STEP 1: सबसे पहले Firebase Initialize करें
+    // ✅ STEP 1: Initialize Firebase
     initFirebase();
 
-    // ✅ STEP 2: Auth Listener Setup
+    // ✅ STEP 2: Setup Auth Listener
     setupAuthListener();
 
-    // ✅ STEP 3: अब Session Check करें
-    if (!checkSession()) {
-        console.log('❌ Session check failed, redirecting to login...');
-        window.location.href = 'admin-login.html';
-        return;
-    }
+    // ✅ STEP 3: Wait for auth state, then load dashboard
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+        if (user) {
+            console.log('✅ User authenticated:', user.email);
+            currentAdmin = {
+                uid: user.uid,
+                email: user.email,
+                isAdmin: true
+            };
+            updateAdminUI();
+            
+            // ✅ Load dashboard data
+            loadDashboardData();
+            
+            // Setup listeners
+            setupDeleteListener();
+            setupKeyboardShortcuts();
 
-    console.log('✅ Session check passed, loading dashboard...');
+            // Periodic updates
+            setInterval(updateStatusDot, 30000);
+            setInterval(() => {
+                loadDeletedUsers();
+            }, 60000);
 
-    // ✅ STEP 4: Dashboard Load करें
-    await loadStats();
-    renderLogs();
-    await loadDeletedUsers();
-
-    setupDeleteListener();
-    setupKeyboardShortcuts();
-
-    // ✅ Periodic updates
-    setInterval(updateStatusDot, 30000);
-    setInterval(() => {
-        loadDeletedUsers();
-    }, 60000);
-
-    addLog('System Started', 'success', 'v2.1');
-
-    console.log('✅ RND Backup System v2.1 Started');
-    console.log('📧 Admin:', currentAdmin?.email);
-    console.log('📊 Sync Paths:', SYNC_PATHS);
+            addLog('System Started', 'success', 'v2.1');
+            console.log('✅ RND Backup System v2.1 Ready');
+            console.log('📧 Admin:', currentAdmin?.email);
+            console.log('📊 Sync Paths:', SYNC_PATHS);
+            
+        } else {
+            console.log('❌ No authenticated user');
+            // If not on login page, redirect
+            if (!window.location.pathname.includes('admin-login.html') && 
+                !window.location.pathname.includes('login')) {
+                window.location.href = 'admin-login.html';
+            }
+        }
+        unsubscribe();
+    });
 }
 
 // ✅ DOM Ready होने पर Start करें
