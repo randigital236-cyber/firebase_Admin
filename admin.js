@@ -1,7 +1,5 @@
 // ==================== RND BACKUP SYSTEM v2.1 - COMPLETE JAVASCRIPT ====================
-// ✅ Added: Restore All Database Button
-// ✅ Added: Confirmation before Backup
-// ✅ Added: Confirmation before Restore
+// ✅ FIXED: init() function order - Firebase first, then session check
 
 // ==================== FIREBASE CONFIG ====================
 const MAIN_CONFIG = {
@@ -43,90 +41,67 @@ function initFirebase() {
     backupDB = firebase.database(backupApp);
     auth = firebase.auth(mainApp);
 
-    // ✅ FIX: Auth state listener - Session को Manage करें
-    auth.onAuthStateChanged((user) => {
-        if (!user) {
-            // User logged out
-            const session = localStorage.getItem('adminSession');
-            if (session) {
-                localStorage.removeItem('adminSession');
-            }
-            // Only redirect if we're not already on login page
-            if (!window.location.pathname.includes('admin-login.html')) {
-                window.location.href = 'admin-login.html';
-            }
-        } else {
-            // User is logged in - update session
-            const session = localStorage.getItem('adminSession');
-            if (!session) {
-                // Session missing but user is logged in - create session
-                const adminSession = {
-                    uid: user.uid,
-                    email: user.email,
-                    isAdmin: true,
-                    loginTime: new Date().toISOString(),
-                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-                };
-                localStorage.setItem('adminSession', JSON.stringify(adminSession));
-                currentAdmin = adminSession;
-                updateAdminUI();
-            }
-        }
-    });
-
     console.log('✅ Firebase initialized');
 }
 
 // ==================== UPDATE ADMIN UI ====================
 function updateAdminUI() {
     if (currentAdmin) {
-        document.getElementById('adminEmailDisplay').textContent = currentAdmin.email;
-        document.getElementById('adminAvatar').textContent = currentAdmin.email.charAt(0).toUpperCase();
+        const emailEl = document.getElementById('adminEmailDisplay');
+        const avatarEl = document.getElementById('adminAvatar');
+        if (emailEl) emailEl.textContent = currentAdmin.email;
+        if (avatarEl) avatarEl.textContent = currentAdmin.email.charAt(0).toUpperCase();
     }
 }
 
 // ==================== SESSION MANAGEMENT ====================
 function checkSession() {
+    // ✅ पहले Local Storage देखें
     let session = localStorage.getItem('adminSession');
-    if (!session) {
-        // Try to get from Firebase Auth
-        const user = auth.currentUser;
-        if (user) {
-            const adminSession = {
-                uid: user.uid,
-                email: user.email,
-                isAdmin: true,
-                loginTime: new Date().toISOString(),
-                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-            };
-            localStorage.setItem('adminSession', JSON.stringify(adminSession));
-            session = JSON.stringify(adminSession);
-        } else {
-            window.location.href = 'admin-login.html';
-            return false;
+    
+    if (session) {
+        try {
+            const admin = JSON.parse(session);
+            if (admin.expiresAt && new Date(admin.expiresAt) > new Date()) {
+                currentAdmin = admin;
+                updateAdminUI();
+                console.log('✅ Session found in localStorage:', admin.email);
+                return true;
+            } else {
+                localStorage.removeItem('adminSession');
+            }
+        } catch(e) {
+            localStorage.removeItem('adminSession');
         }
     }
 
-    try {
-        const admin = JSON.parse(session);
-        if (admin.expiresAt && new Date(admin.expiresAt) < new Date()) {
-            localStorage.removeItem('adminSession');
-            window.location.href = 'admin-login.html';
-            return false;
-        }
-        currentAdmin = admin;
+    // ✅ अगर Local Storage में नहीं, तो Firebase Auth देखें
+    if (auth && auth.currentUser) {
+        const user = auth.currentUser;
+        const adminSession = {
+            uid: user.uid,
+            email: user.email,
+            isAdmin: true,
+            loginTime: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        };
+        localStorage.setItem('adminSession', JSON.stringify(adminSession));
+        currentAdmin = adminSession;
         updateAdminUI();
+        console.log('✅ Session created from Firebase Auth:', user.email);
         return true;
-    } catch(e) {
-        window.location.href = 'admin-login.html';
-        return false;
     }
+
+    // ❌ कोई Session नहीं
+    console.log('❌ No session found, redirecting to login');
+    window.location.href = 'admin-login.html';
+    return false;
 }
 
 function adminLogout() {
     if (!confirm('Are you sure you want to logout?')) return;
     localStorage.removeItem('adminSession');
-    auth.signOut();
+    if (auth) auth.signOut();
     window.location.href = 'admin-login.html';
 }
 
@@ -380,7 +355,7 @@ async function fullSync() {
     }
 }
 
-// ==================== RESTORE ALL DATABASE (NEW) ====================
+// ==================== RESTORE ALL DATABASE ====================
 function confirmRestoreAll() {
     showConfirm(
         '🚨 Restore All Database?',
@@ -401,7 +376,6 @@ async function restoreAllDatabase() {
     showNotification('Starting full database restore...', 'info');
 
     try {
-        // First check if backup has any data
         const backupCheck = await backupDB.ref('users').once('value');
         if (!backupCheck.exists()) {
             showNotification('❌ No data found in Backup Firebase!', 'error');
@@ -743,13 +717,47 @@ function setupKeyboardShortcuts() {
     }
 }
 
+// ==================== AUTH STATE LISTENER ====================
+function setupAuthListener() {
+    if (!auth) return;
+    
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            console.log('✅ Auth State: User logged in:', user.email);
+            // Session already exists or will be created by checkSession
+        } else {
+            console.log('❌ Auth State: No user');
+            const session = localStorage.getItem('adminSession');
+            if (session) {
+                // Session exists but Firebase says no user - clear session
+                localStorage.removeItem('adminSession');
+                if (!window.location.pathname.includes('admin-login.html')) {
+                    window.location.href = 'admin-login.html';
+                }
+            }
+        }
+    });
+}
+
 // ==================== INIT ====================
 async function init() {
-    // ✅ FIX: Session check को async बनाया
-    if (!checkSession()) return;
+    console.log('🚀 Starting RND Backup System...');
 
+    // ✅ सबसे पहले Firebase Initialize करें
     initFirebase();
 
+    // ✅ Auth Listener Setup
+    setupAuthListener();
+
+    // ✅ अब Session Check करें
+    if (!checkSession()) {
+        console.log('❌ Session check failed');
+        return;
+    }
+
+    console.log('✅ Session check passed, loading dashboard...');
+
+    // ✅ Dashboard Load करें
     await loadStats();
     renderLogs();
     await loadDeletedUsers();
@@ -768,9 +776,9 @@ async function init() {
     console.log('✅ RND Backup System v2.1 Started');
     console.log('📧 Admin:', currentAdmin?.email);
     console.log('📊 Sync Paths:', SYNC_PATHS);
-    console.log('✅ New Features: Restore All + Confirmations');
 }
 
+// ✅ DOM Ready होने पर Start करें
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
