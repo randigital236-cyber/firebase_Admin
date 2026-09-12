@@ -1,9 +1,11 @@
-// ==================== RND BACKUP SYSTEM - PRODUCTION FINAL ====================
+// ==================== RND BACKUP SYSTEM - PRODUCTION FINAL v2.0 ====================
 // ✅ Fix 1: Signup - ONLY Backup Firebase (Main Firebase NOT touched)
 // ✅ Fix 2: Initial Backup - Compare counts, not just "exists"
 // ✅ Fix 3: .off() on Logout - Prevent duplicate listeners
 // ✅ Fix 4: Restore - Remove metadata before writing to Main
 // ✅ Fix 5: child_removed IGNORED (Safe Design)
+// ✅ Fix 6: Session check - Properly set currentAdmin + UI
+// ✅ Fix 7: Login page visibility - handled correctly
 
 // ==================== FIREBASE CONFIG ====================
 const MAIN_CONFIG = {
@@ -37,7 +39,7 @@ let currentAdmin = null;
 let pendingAction = null;
 let backupStarted = false;
 let isInitialBackupDone = false;
-let backupListeners = []; // ✅ Fix 3: Track listeners for cleanup
+let backupListeners = [];
 
 // ==================== RETRY HELPER ====================
 async function retryOperation(operation, maxRetries = 3, delay = 1000) {
@@ -45,7 +47,7 @@ async function retryOperation(operation, maxRetries = 3, delay = 1000) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             return await operation();
-        } catch(e) {
+        } catch (e) {
             lastError = e;
             console.log(`⏳ Retry ${attempt}/${maxRetries} failed:`, e.message);
             if (attempt < maxRetries) {
@@ -69,19 +71,19 @@ async function saveBackupLog(uid, path, action, status, details) {
             date: new Date().toISOString()
         };
         await backupDB.ref('backupLogs').push(logData);
-    } catch(e) {
+    } catch (e) {
         console.error('❌ Failed to save log:', e);
     }
 }
 
-// ==================== CLEANUP LISTENERS (Fix 3) ====================
+// ==================== CLEANUP LISTENERS ====================
 function cleanupBackupListeners() {
     if (backupListeners.length > 0) {
         console.log('🧹 Cleaning up', backupListeners.length, 'listeners...');
         backupListeners.forEach(item => {
             try {
                 item.ref.off(item.event, item.callback);
-            } catch(e) {
+            } catch (e) {
                 console.error('Cleanup error:', e);
             }
         });
@@ -95,12 +97,12 @@ function cleanupBackupListeners() {
 function initFirebase() {
     try {
         mainApp = firebase.app('mainApp');
-    } catch(e) {
+    } catch (e) {
         mainApp = firebase.initializeApp(MAIN_CONFIG, 'mainApp');
     }
     try {
         backupApp = firebase.app('backupApp');
-    } catch(e) {
+    } catch (e) {
         backupApp = firebase.initializeApp(BACKUP_CONFIG, 'backupApp');
     }
     mainDB = firebase.database(mainApp);
@@ -111,12 +113,15 @@ function initFirebase() {
     // Start initial backup then auto backup
     startInitialFullBackup().then(() => {
         startSafeAutoBackup();
+    }).catch(e => {
+        console.error('Init backup error:', e);
+        startSafeAutoBackup();
     });
 
     checkSession();
 }
 
-// ==================== FIX 2: INITIAL FULL BACKUP (Compare Counts) ====================
+// ==================== FIX 2: INITIAL FULL BACKUP ====================
 async function startInitialFullBackup() {
     if (isInitialBackupDone) {
         console.log('✅ Initial backup already done');
@@ -126,10 +131,9 @@ async function startInitialFullBackup() {
     console.log('📦 Checking initial backup status...');
 
     try {
-        // ✅ Fix 2: Compare counts instead of just "exists"
         const mainSnap = await mainDB.ref('users').once('value');
         const backupSnap = await backupDB.ref('users').once('value');
-        
+
         const mainCount = Object.keys(mainSnap.val() || {}).length;
         const backupCount = Object.keys(backupSnap.val() || {}).length;
 
@@ -167,7 +171,7 @@ async function startInitialFullBackup() {
                 } else {
                     synced++;
                 }
-            } catch(e) {
+            } catch (e) {
                 failed++;
                 console.error(`❌ Initial Backup failed for ${path}:`, e);
                 await saveBackupLog('system', path, 'initial_backup', 'failed', e.message);
@@ -180,24 +184,21 @@ async function startInitialFullBackup() {
         addLog('Initial Full Backup', 'success', `${synced}/${total} paths (Users: ${mainCount})`);
         await saveBackupLog('system', 'all', 'initial_backup', 'success', `${synced}/${total} paths, Users: ${mainCount}`);
 
-    } catch(e) {
+    } catch (e) {
         console.error('❌ Initial Full Backup failed:', e);
         addLog('Initial Full Backup', 'failed', e.message);
         await saveBackupLog('system', 'all', 'initial_backup', 'failed', e.message);
-        // Even if initial backup fails, try to start auto backup
         isInitialBackupDone = true;
     }
 }
 
-// ==================== FIX 5: SAFE AUTO BACKUP (DELETE IGNORED) ====================
+// ==================== FIX 5: SAFE AUTO BACKUP ====================
 function startSafeAutoBackup() {
-    // ✅ Duplicate check
     if (backupStarted) {
         console.log('⚠️ Auto Backup already started, skipping duplicate');
         return;
     }
 
-    // ✅ Fix 3: Cleanup old listeners first
     cleanupBackupListeners();
 
     backupStarted = true;
@@ -223,7 +224,7 @@ function startSafeAutoBackup() {
                     console.log('✅ Auto Backup (ADD):', path, key);
                     await saveBackupLog(key, path, 'auto_backup_add', 'success');
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error('❌ Auto Backup (ADD) failed:', path, e);
                 await saveBackupLog(snap.key, path, 'auto_backup_add', 'failed', e.message);
             }
@@ -248,7 +249,7 @@ function startSafeAutoBackup() {
                     console.log('✅ Auto Backup (UPDATE):', path, key);
                     await saveBackupLog(key, path, 'auto_backup_update', 'success');
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error('❌ Auto Backup (UPDATE) failed:', path, e);
                 await saveBackupLog(snap.key, path, 'auto_backup_update', 'failed', e.message);
             }
@@ -256,9 +257,7 @@ function startSafeAutoBackup() {
         mainDB.ref(path).on('child_changed', changeCallback);
         backupListeners.push({ ref: mainDB.ref(path), event: 'child_changed', callback: changeCallback });
 
-        // ❌ 3. DELETE को IGNORE करें (सबसे Important!)
-        // mainDB.ref(path).on('child_removed', ...) → SKIP
-        // इससे Backup से Data कभी Delete नहीं होगा!
+        // ❌ 3. DELETE IGNORED
     });
 
     addLog('Safe Auto Backup', 'success', 'Started - DELETE ignored');
@@ -267,13 +266,12 @@ function startSafeAutoBackup() {
     console.log(`📌 ${backupListeners.length} listeners active`);
 }
 
-// ==================== FIX 4: RESTORE WITH METADATA CLEANUP ====================
+// ==================== FIX 4: RESTORE USER ====================
 async function restoreUserWithSafety(uid) {
     const container = document.getElementById('restoreResult');
     container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner-sm"></div><p style="margin-top:8px;color:#94a3b8;">Checking user in Main Firebase...</p></div>';
 
     try {
-        // Check if user already exists in Main Firebase
         const mainCheck = await mainDB.ref('users/' + uid).once('value');
         const userExists = mainCheck.exists();
 
@@ -290,7 +288,6 @@ async function restoreUserWithSafety(uid) {
             }
         }
 
-        // Check if user exists in backup
         const backupSnap = await backupDB.ref('users/' + uid).once('value');
         if (!backupSnap.exists()) {
             container.innerHTML = `
@@ -302,25 +299,27 @@ async function restoreUserWithSafety(uid) {
             return;
         }
 
-        container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner-sm"></div><p style="margin-top:8px;color:#94a3b8;">Restoring user ${uid}...</p></div>';
+        container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner-sm"></div><p style="margin-top:8px;color:#94a3b8;">Restoring user ' + uid + '...</p></div>';
 
         let restored = 0;
         let failed = 0;
+
         for (const path of BACKUP_PATHS) {
             try {
                 const snap = await backupDB.ref(path + '/' + uid).once('value');
                 let data = snap.val();
                 if (data) {
-                    // ✅ Fix 4: Remove metadata before writing to Main
+                    // ✅ Remove metadata before writing to Main
                     if (data._backupTime) delete data._backupTime;
                     if (data.backupUpdatedAt) delete data.backupUpdatedAt;
-                    
+
                     await retryOperation(async () => {
                         await mainDB.ref(path + '/' + uid).set(data);
                     });
                     restored++;
+                    console.log(`✅ Restored ${path}/${uid}`);
                 }
-            } catch(e) {
+            } catch (e) {
                 failed++;
                 console.error('Restore failed for', path, e);
             }
@@ -336,15 +335,15 @@ async function restoreUserWithSafety(uid) {
                 </div>
             </div>
         `;
-        
+
         showNotification(`User ${uid} restored!`, 'success');
-        addLog('Restore User', 'success', `UID: ${uid} (${restored} paths) - ${userExists ? 'Overwritten' : 'New'}`);
+        addLog('Restore User', 'success', `UID: ${uid} (${restored} paths)`);
         await saveBackupLog(uid, 'all', 'restore_user', 'success', `${restored} paths, existed: ${userExists}`);
-        
+
         document.getElementById('restoreUid').value = '';
         checkStatus();
 
-    } catch(e) {
+    } catch (e) {
         container.innerHTML = `
             <div class="alert alert-danger">
                 <i class="fas fa-circle-exclamation"></i>
@@ -356,7 +355,7 @@ async function restoreUserWithSafety(uid) {
     }
 }
 
-// ==================== FIX 1: SIGNUP - ONLY BACKUP FIREBASE ====================
+// ==================== FIX 1: SIGNUP ====================
 async function handleSignup() {
     const name = document.getElementById('signupName').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
@@ -390,16 +389,13 @@ async function handleSignup() {
         const result = await auth.createUserWithEmailAndPassword(email, password);
         const user = result.user;
 
-        // ✅ Fix 1: ONLY Backup Firebase - Main Firebase NOT touched!
+        // ✅ ONLY Backup Firebase - Main Firebase NOT touched!
         await backupDB.ref('admins/' + user.uid).set({
             name: name,
             email: email,
             role: 'admin',
             createdAt: new Date().toISOString()
         });
-
-        // ❌ REMOVED: mainDB.ref('admins/' + user.uid).set(...)
-        // Main Firebase को कभी नहीं छेड़ना!
 
         console.log('✅ Admin created in Backup Firebase:', email);
         successEl.textContent = '✅ Admin account created! Please login.';
@@ -417,13 +413,15 @@ async function handleSignup() {
             showNotification('Admin created! Please login.', 'success');
         }, 2000);
 
-    } catch(err) {
+    } catch (err) {
         console.error('Signup error:', err);
         let msg = '❌ Signup failed. Please try again.';
         if (err.code === 'auth/email-already-in-use') {
             msg = '❌ Email already registered. Please login.';
         } else if (err.code === 'auth/weak-password') {
             msg = '❌ Password too weak.';
+        } else if (err.code === 'auth/invalid-email') {
+            msg = '❌ Invalid email format.';
         }
         errorEl.textContent = msg;
         errorEl.classList.add('show');
@@ -479,6 +477,7 @@ async function handleLogin() {
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
         };
         localStorage.setItem('adminSession', JSON.stringify(adminSession));
+        currentAdmin = adminSession;
 
         console.log('✅ Admin logged in:', email);
         successEl.textContent = '✅ Login successful!';
@@ -487,18 +486,24 @@ async function handleLogin() {
         setTimeout(() => {
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('dashboardPage').style.display = 'block';
+            document.getElementById('adminEmail').textContent = user.email;
+            document.getElementById('adminAvatar').textContent = user.email.charAt(0).toUpperCase();
             loadDashboard();
         }, 1000);
 
-    } catch(err) {
+    } catch (err) {
         console.error('Login error:', err);
         let msg = '❌ Login failed. Please try again.';
         if (err.code === 'auth/user-not-found') {
             msg = '❌ No account found. Please sign up first.';
         } else if (err.code === 'auth/wrong-password') {
             msg = '❌ Incorrect password.';
+        } else if (err.code === 'auth/invalid-credential') {
+            msg = '❌ Invalid email or password.';
         } else if (err.code === 'auth/too-many-requests') {
             msg = '❌ Too many attempts. Try again later.';
+        } else if (err.code === 'auth/invalid-email') {
+            msg = '❌ Invalid email format.';
         }
         errorEl.textContent = msg;
         errorEl.classList.add('show');
@@ -507,20 +512,31 @@ async function handleLogin() {
     }
 }
 
-// ==================== FIX 3: LOGOUT WITH CLEANUP ====================
+// ==================== LOGOUT ====================
 function adminLogout() {
     if (!confirm('Logout?')) return;
-    
-    // ✅ Fix 3: Cleanup all listeners on logout
+
     cleanupBackupListeners();
-    
     localStorage.removeItem('adminSession');
+    currentAdmin = null;
     auth.signOut();
     document.getElementById('dashboardPage').style.display = 'none';
     document.getElementById('loginPage').style.display = 'block';
     document.getElementById('loginForm').style.display = 'block';
     document.getElementById('signupForm').style.display = 'none';
-    
+
+    // Reset buttons
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+    }
+    const signupBtn = document.getElementById('signupBtn');
+    if (signupBtn) {
+        signupBtn.disabled = false;
+        signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin Account';
+    }
+
     console.log('👋 Logged out, listeners cleaned up');
 }
 
@@ -539,8 +555,12 @@ function checkSession() {
             document.getElementById('adminAvatar').textContent = admin.email.charAt(0).toUpperCase();
             loadDashboard();
             return;
+        } else {
+            localStorage.removeItem('adminSession');
         }
-    } catch(e) {}
+    } catch (e) {
+        localStorage.removeItem('adminSession');
+    }
 }
 
 // ==================== UI TOGGLE ====================
@@ -564,7 +584,7 @@ function showNotification(msg, type, duration) {
     duration = duration || 4000;
     const n = document.getElementById('notification');
     if (!n) return;
-    const colors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b' };
+    const colors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#6366f1' };
     n.style.background = colors[type] || colors.success;
     n.textContent = msg;
     n.className = 'notification-toast ' + type + ' show';
@@ -574,7 +594,7 @@ function showNotification(msg, type, duration) {
 
 function formatDate(ts) {
     if (!ts) return '--';
-    try { return new Date(ts).toLocaleString('en-IN'); } catch(e) { return '--'; }
+    try { return new Date(ts).toLocaleString('en-IN'); } catch (e) { return '--'; }
 }
 
 // ==================== LOCAL LOGS ====================
@@ -594,7 +614,7 @@ function clearLogs() {
     if (!confirm('Clear all logs?')) return;
     localStorage.setItem('rnd_backup_logs', '[]');
     renderLogs();
-    showNotification('Logs cleared', 'info');
+    showNotification('Logs cleared', 'success');
 }
 
 function renderLogs() {
@@ -610,7 +630,7 @@ function renderLogs() {
         const cls = log.status === 'success' ? 'success' : log.status === 'failed' ? 'danger' : 'warning';
         html += `
             <div class="log-entry">
-                <span><strong>${log.action}</strong> ${log.details ? '<span style="color:#94a3b8;font-size:0.8rem;">'+log.details+'</span>' : ''}</span>
+                <span><strong>${log.action}</strong> ${log.details ? '<span style="color:#94a3b8;font-size:0.8rem;">' + log.details + '</span>' : ''}</span>
                 <span><span class="tag tag-${cls}">${log.status}</span></span>
                 <span class="log-time">${formatDate(log.time)}</span>
             </div>
@@ -660,8 +680,7 @@ async function loadDashboard() {
 async function checkStatus() {
     showNotification('Checking status...', 'info');
     try {
-        let mainTotal = 0,
-            backupTotal = 0;
+        let mainTotal = 0, backupTotal = 0;
         for (const path of BACKUP_PATHS) {
             const m = await mainDB.ref(path).once('value');
             const b = await backupDB.ref(path).once('value');
@@ -680,18 +699,18 @@ async function checkStatus() {
 
         showNotification(mainTotal === backupTotal ? '✅ Data matched!' : '⚠️ Data mismatch found!', mainTotal === backupTotal ? 'success' : 'warning');
         addLog('Check Status', mainTotal === backupTotal ? 'success' : 'warning', `Main: ${mainTotal}, Backup: ${backupTotal}`);
-    } catch(e) {
+    } catch (e) {
         showNotification('Error checking status: ' + e.message, 'error');
     }
 }
 
-// ==================== MANUAL BACKUP (Full) ====================
+// ==================== MANUAL BACKUP ====================
 function confirmBackup() {
     showConfirm(
         '📦 Backup All Data?',
         'This will copy ALL data from Main Firebase to Backup Firebase. Continue?',
         '⚠️',
-        function() { backupAllData(); },
+        function () { backupAllData(); },
         'Yes, Backup Now'
     );
 }
@@ -707,14 +726,13 @@ async function backupAllData() {
     progressDiv.classList.remove('hidden');
     progressBar.style.width = '0%';
 
-    let synced = 0,
-        failed = 0;
+    let synced = 0, failed = 0;
     const total = BACKUP_PATHS.length;
 
     try {
         for (let i = 0; i < total; i++) {
             const path = BACKUP_PATHS[i];
-            progressText.textContent = `Syncing: ${path}... (${i+1}/${total})`;
+            progressText.textContent = `Syncing: ${path}... (${i + 1}/${total})`;
             progressBar.style.width = ((i / total) * 100) + '%';
             try {
                 const snap = await mainDB.ref(path).once('value');
@@ -725,7 +743,7 @@ async function backupAllData() {
                     });
                     synced++;
                 }
-            } catch(e) {
+            } catch (e) {
                 failed++;
                 console.error('Backup failed for', path, e);
             }
@@ -745,7 +763,7 @@ async function backupAllData() {
             btn.innerHTML = '<i class="fas fa-rotate"></i> Backup All Data';
         }, 3000);
 
-    } catch(e) {
+    } catch (e) {
         progressText.textContent = '❌ Error: ' + e.message;
         showNotification('Backup failed: ' + e.message, 'error');
         addLog('Backup All Data', 'failed', e.message);
@@ -771,7 +789,7 @@ function confirmRestoreAll() {
         '🚨 Restore Full Database?',
         '⚠️ WARNING: This will OVERWRITE ALL data in Main Firebase with Backup Firebase! This CANNOT be undone! Continue?',
         '🚨',
-        function() { restoreAllDatabase(); },
+        function () { restoreAllDatabase(); },
         'Yes, Restore All'
     );
 }
@@ -798,28 +816,33 @@ async function restoreAllDatabase() {
             return;
         }
 
-        let restored = 0,
-            failed = 0;
+        let restored = 0, failed = 0;
         const total = BACKUP_PATHS.length;
 
         for (let i = 0; i < total; i++) {
             const path = BACKUP_PATHS[i];
-            progressText.textContent = `Restoring: ${path}... (${i+1}/${total})`;
+            progressText.textContent = `Restoring: ${path}... (${i + 1}/${total})`;
             progressBar.style.width = ((i / total) * 100) + '%';
             try {
                 const snap = await backupDB.ref(path).once('value');
                 let data = snap.val();
                 if (data) {
-                    // ✅ Fix 4: Remove metadata before writing to Main
+                    // ✅ Remove metadata before writing to Main
+                    Object.keys(data).forEach(key => {
+                        if (data[key] && typeof data[key] === 'object') {
+                            if (data[key]._backupTime) delete data[key]._backupTime;
+                            if (data[key].backupUpdatedAt) delete data[key].backupUpdatedAt;
+                        }
+                    });
                     if (data._backupTime) delete data._backupTime;
                     if (data.backupUpdatedAt) delete data.backupUpdatedAt;
-                    
+
                     await retryOperation(async () => {
                         await mainDB.ref(path).set(data);
                     });
                     restored++;
                 }
-            } catch(e) {
+            } catch (e) {
                 failed++;
                 console.error('Restore failed for', path, e);
             }
@@ -839,7 +862,7 @@ async function restoreAllDatabase() {
             btn.innerHTML = '<i class="fas fa-database"></i> Restore Full Database';
         }, 3000);
 
-    } catch(e) {
+    } catch (e) {
         progressText.textContent = '❌ Error: ' + e.message;
         showNotification('Restore failed: ' + e.message, 'error');
         addLog('Restore Full Database', 'failed', e.message);
@@ -852,13 +875,17 @@ async function restoreAllDatabase() {
 // ==================== ENTER KEY ====================
 document.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
-        if (document.getElementById('loginForm').style.display !== 'none') {
+        const loginForm = document.getElementById('loginForm');
+        const signupForm = document.getElementById('signupForm');
+        if (loginForm && loginForm.style.display !== 'none') {
             handleLogin();
-        } else if (document.getElementById('signupForm').style.display !== 'none') {
+        } else if (signupForm && signupForm.style.display !== 'none') {
             handleSignup();
         }
     }
 });
 
 // ==================== INIT ====================
-initFirebase();
+window.addEventListener('DOMContentLoaded', () => {
+    initFirebase();
+});
