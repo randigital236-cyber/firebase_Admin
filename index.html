@@ -349,29 +349,7 @@
             <div class="error-message" id="loginError">❌ Invalid credentials</div>
             <div class="success-message" id="loginSuccess">✅ Login successful!</div>
 
-            <!-- Signup Form (Hidden by default) -->
-            <div id="signupForm" style="display:none;">
-                <div class="form-group">
-                    <label><i class="fas fa-user"></i> Full Name</label>
-                    <input type="text" id="signupName" placeholder="Enter your full name" />
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-envelope"></i> Email Address</label>
-                    <input type="email" id="signupEmail" placeholder="Enter your email" />
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-lock"></i> Password</label>
-                    <input type="password" id="signupPassword" placeholder="Min 6 characters" />
-                </div>
-                <button class="btn-login" id="signupBtn" onclick="handleSignup()">
-                    <i class="fas fa-user-plus"></i> Create Admin Account
-                </button>
-                <div class="signup-link">
-                    Already have an account? <a onclick="showLogin()">Login</a>
-                </div>
-            </div>
-
-            <!-- Login Form (Visible by default) -->
+            <!-- Login Form -->
             <div id="loginForm">
                 <div class="form-group">
                     <label><i class="fas fa-envelope"></i> Email Address</label>
@@ -384,9 +362,7 @@
                 <button class="btn-login" id="loginBtn" onclick="handleLogin()">
                     <i class="fas fa-sign-in-alt"></i> Login
                 </button>
-                <div class="signup-link">
-                    New Admin? <a onclick="showSignup()">Sign Up</a>
-                </div>
+                <!-- 🔒 Signup link hidden for security -->
             </div>
 
             <div class="footer">
