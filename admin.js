@@ -1,11 +1,8 @@
-// ==================== RND BACKUP SYSTEM - PRODUCTION FINAL v2.0 ====================
-// ✅ Fix 1: Signup - ONLY Backup Firebase (Main Firebase NOT touched)
-// ✅ Fix 2: Initial Backup - Compare counts, not just "exists"
-// ✅ Fix 3: .off() on Logout - Prevent duplicate listeners
-// ✅ Fix 4: Restore - Remove metadata before writing to Main
-// ✅ Fix 5: child_removed IGNORED (Safe Design)
-// ✅ Fix 6: Session check - Properly set currentAdmin + UI
-// ✅ Fix 7: Login page visibility - handled correctly
+// ==================== RND BACKUP SYSTEM v2.1 - SECURE ====================
+// ✅ Fix 1: Signup ONLY via secret URL (?setup=1)
+// ✅ Fix 2: Signup link hidden from login page
+// ✅ Fix 3: Better error messages
+// ✅ Fix 4: All previous fixes retained
 
 // ==================== FIREBASE CONFIG ====================
 const MAIN_CONFIG = {
@@ -32,6 +29,10 @@ const BACKUP_PATHS = [
     'settings',
     'usernames'
 ];
+
+// ==================== SECRET SETUP KEY ====================
+// Sirf aap jaante hain. Signup ke liye URL mein ?setup=1 lagana hoga
+const SETUP_KEY = '1';
 
 // ==================== GLOBAL ====================
 let mainApp, backupApp, mainDB, backupDB, auth;
@@ -119,9 +120,35 @@ function initFirebase() {
     });
 
     checkSession();
+    checkSetupMode();
 }
 
-// ==================== FIX 2: INITIAL FULL BACKUP ====================
+// ==================== SECRET SETUP MODE CHECK ====================
+function checkSetupMode() {
+    const params = new URLSearchParams(window.location.search);
+    const setupParam = params.get('setup');
+    
+    if (setupParam === SETUP_KEY) {
+        // Secret signup mode - show signup form
+        console.log('🔐 Secret setup mode activated');
+        const signupForm = document.getElementById('signupForm');
+        const loginForm = document.getElementById('loginForm');
+        if (signupForm && loginForm) {
+            signupForm.style.display = 'block';
+            loginForm.style.display = 'none';
+        }
+    } else {
+        // Normal mode - only login
+        const signupForm = document.getElementById('signupForm');
+        const loginForm = document.getElementById('loginForm');
+        if (signupForm && loginForm) {
+            signupForm.style.display = 'none';
+            loginForm.style.display = 'block';
+        }
+    }
+}
+
+// ==================== INITIAL FULL BACKUP ====================
 async function startInitialFullBackup() {
     if (isInitialBackupDone) {
         console.log('✅ Initial backup already done');
@@ -192,7 +219,7 @@ async function startInitialFullBackup() {
     }
 }
 
-// ==================== FIX 5: SAFE AUTO BACKUP ====================
+// ==================== SAFE AUTO BACKUP ====================
 function startSafeAutoBackup() {
     if (backupStarted) {
         console.log('⚠️ Auto Backup already started, skipping duplicate');
@@ -207,7 +234,6 @@ function startSafeAutoBackup() {
     console.log('❌ DELETE will be IGNORED (Safe!)');
 
     BACKUP_PATHS.forEach(path => {
-        // ✅ 1. New Data (ADD)
         const addCallback = async (snap) => {
             try {
                 const key = snap.key;
@@ -232,7 +258,6 @@ function startSafeAutoBackup() {
         mainDB.ref(path).on('child_added', addCallback);
         backupListeners.push({ ref: mainDB.ref(path), event: 'child_added', callback: addCallback });
 
-        // ✅ 2. Data Update (UPDATE)
         const changeCallback = async (snap) => {
             try {
                 const key = snap.key;
@@ -256,8 +281,6 @@ function startSafeAutoBackup() {
         };
         mainDB.ref(path).on('child_changed', changeCallback);
         backupListeners.push({ ref: mainDB.ref(path), event: 'child_changed', callback: changeCallback });
-
-        // ❌ 3. DELETE IGNORED
     });
 
     addLog('Safe Auto Backup', 'success', 'Started - DELETE ignored');
@@ -266,7 +289,7 @@ function startSafeAutoBackup() {
     console.log(`📌 ${backupListeners.length} listeners active`);
 }
 
-// ==================== FIX 4: RESTORE USER ====================
+// ==================== RESTORE USER ====================
 async function restoreUserWithSafety(uid) {
     const container = document.getElementById('restoreResult');
     container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner-sm"></div><p style="margin-top:8px;color:#94a3b8;">Checking user in Main Firebase...</p></div>';
@@ -309,7 +332,6 @@ async function restoreUserWithSafety(uid) {
                 const snap = await backupDB.ref(path + '/' + uid).once('value');
                 let data = snap.val();
                 if (data) {
-                    // ✅ Remove metadata before writing to Main
                     if (data._backupTime) delete data._backupTime;
                     if (data.backupUpdatedAt) delete data.backupUpdatedAt;
 
@@ -355,8 +377,17 @@ async function restoreUserWithSafety(uid) {
     }
 }
 
-// ==================== FIX 1: SIGNUP ====================
+// ==================== SIGNUP (Secret - sirf ?setup=1 se) ====================
 async function handleSignup() {
+    // ✅ Security check - sirf secret URL se signup
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('setup') !== SETUP_KEY) {
+        const errorEl = document.getElementById('loginError');
+        errorEl.textContent = '⛔ Signup disabled. Contact administrator.';
+        errorEl.classList.add('show');
+        return;
+    }
+
     const name = document.getElementById('signupName').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
     const password = document.getElementById('signupPassword').value.trim();
@@ -389,7 +420,6 @@ async function handleSignup() {
         const result = await auth.createUserWithEmailAndPassword(email, password);
         const user = result.user;
 
-        // ✅ ONLY Backup Firebase - Main Firebase NOT touched!
         await backupDB.ref('admins/' + user.uid).set({
             name: name,
             email: email,
@@ -411,6 +441,8 @@ async function handleSignup() {
             document.getElementById('loginEmail').value = email;
             successEl.classList.remove('show');
             showNotification('Admin created! Please login.', 'success');
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
         }, 2000);
 
     } catch (err) {
@@ -462,7 +494,7 @@ async function handleLogin() {
         const snap = await backupDB.ref('admins/' + user.uid).once('value');
         if (!snap.exists()) {
             await auth.signOut();
-            errorEl.textContent = '⛔ Unauthorized: Not an admin';
+            errorEl.textContent = '⛔ Unauthorized: Not an admin. Please sign up first via setup URL.';
             errorEl.classList.add('show');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
@@ -495,7 +527,7 @@ async function handleLogin() {
         console.error('Login error:', err);
         let msg = '❌ Login failed. Please try again.';
         if (err.code === 'auth/user-not-found') {
-            msg = '❌ No account found. Please sign up first.';
+            msg = '❌ No account found. Please contact admin.';
         } else if (err.code === 'auth/wrong-password') {
             msg = '❌ Incorrect password.';
         } else if (err.code === 'auth/invalid-credential') {
@@ -525,7 +557,6 @@ function adminLogout() {
     document.getElementById('loginForm').style.display = 'block';
     document.getElementById('signupForm').style.display = 'none';
 
-    // Reset buttons
     const loginBtn = document.getElementById('loginBtn');
     if (loginBtn) {
         loginBtn.disabled = false;
@@ -572,6 +603,12 @@ function showLogin() {
 }
 
 function showSignup() {
+    // ✅ Block signup if not in setup mode
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('setup') !== SETUP_KEY) {
+        showNotification('⛔ Signup disabled', 'error');
+        return;
+    }
     document.getElementById('signupForm').style.display = 'block';
     document.getElementById('loginForm').style.display = 'none';
     document.getElementById('loginError').classList.remove('show');
@@ -668,7 +705,7 @@ function executeConfirmed() {
 async function loadDashboard() {
     await checkStatus();
     renderLogs();
-    addLog('System Started', 'success', 'v2.0 - Safe Auto Backup');
+    addLog('System Started', 'success', 'v2.1 - Secure');
     console.log('✅ RND Backup System Ready');
     console.log('📧 Admin:', currentAdmin?.email);
     console.log('📊 Backup Paths:', BACKUP_PATHS);
@@ -827,7 +864,6 @@ async function restoreAllDatabase() {
                 const snap = await backupDB.ref(path).once('value');
                 let data = snap.val();
                 if (data) {
-                    // ✅ Remove metadata before writing to Main
                     Object.keys(data).forEach(key => {
                         if (data[key] && typeof data[key] === 'object') {
                             if (data[key]._backupTime) delete data[key]._backupTime;
