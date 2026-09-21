@@ -1,8 +1,10 @@
-// ==================== RND BACKUP SYSTEM v2.1 - SECURE ====================
-// ✅ Fix 1: Signup ONLY via secret URL (?setup=1)
-// ✅ Fix 2: Signup link hidden from login page
-// ✅ Fix 3: Better error messages
-// ✅ Fix 4: All previous fixes retained
+// ==================== RND BACKUP SYSTEM v2.2 - PERMANENT SESSION ====================
+// ✅ Fix 1: Permanent session (999 days) - no more repeated login
+// ✅ Fix 2: Firebase Auth state sync - proper auto-login
+// ✅ Fix 3: Session + Auth mismatch handling
+// ✅ Fix 4: Signup ONLY via secret URL (?setup=1)
+// ✅ Fix 5: Signup link hidden
+// ✅ Fix 6: All previous fixes retained
 
 // ==================== FIREBASE CONFIG ====================
 const MAIN_CONFIG = {
@@ -30,9 +32,11 @@ const BACKUP_PATHS = [
     'usernames'
 ];
 
-// ==================== SECRET SETUP KEY ====================
-// Sirf aap jaante hain. Signup ke liye URL mein ?setup=1 lagana hoga
+// ✅ SECRET SETUP KEY
 const SETUP_KEY = '1';
+
+// ✅ SESSION DURATION: 999 days (permanent)
+const SESSION_DURATION_MS = 999 * 24 * 60 * 60 * 1000;
 
 // ==================== GLOBAL ====================
 let mainApp, backupApp, mainDB, backupDB, auth;
@@ -41,6 +45,7 @@ let pendingAction = null;
 let backupStarted = false;
 let isInitialBackupDone = false;
 let backupListeners = [];
+let isLoggingIn = false;
 
 // ==================== RETRY HELPER ====================
 async function retryOperation(operation, maxRetries = 3, delay = 1000) {
@@ -111,7 +116,12 @@ function initFirebase() {
     auth = firebase.auth(mainApp);
     console.log('✅ Firebase initialized');
 
-    // Start initial backup then auto backup
+    // ✅ Set Firebase Auth persistence to LOCAL (browser band karne ke baad bhi login rahe)
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(() => console.log('✅ Auth persistence: LOCAL'))
+        .catch(e => console.error('Persistence error:', e));
+
+    // ✅ Start backup listeners
     startInitialFullBackup().then(() => {
         startSafeAutoBackup();
     }).catch(e => {
@@ -119,8 +129,95 @@ function initFirebase() {
         startSafeAutoBackup();
     });
 
-    checkSession();
+    // ✅ Check setup mode
     checkSetupMode();
+
+    // ✅ Firebase Auth state listener - MOST IMPORTANT for auto-login
+    auth.onAuthStateChanged(async (user) => {
+        console.log('🔄 Auth state changed:', user ? user.email : 'No user');
+        
+        if (isLoggingIn) {
+            console.log('⏳ Login in progress, skipping auth state change');
+            return;
+        }
+
+        if (user) {
+            // User logged in - verify admin
+            await handleAuthStateLogin(user);
+        } else {
+            // User logged out
+            const session = localStorage.getItem('adminSession');
+            if (session) {
+                console.log('⚠️ Firebase logged out but session exists - clearing session');
+                localStorage.removeItem('adminSession');
+                currentAdmin = null;
+            }
+            showLoginPage();
+        }
+    });
+}
+
+// ==================== AUTH STATE LOGIN HANDLER ====================
+async function handleAuthStateLogin(user) {
+    try {
+        // Check admin in Backup Firebase
+        const snap = await backupDB.ref('admins/' + user.uid).once('value');
+        if (!snap.exists()) {
+            console.log('⚠️ User is not admin');
+            await auth.signOut();
+            localStorage.removeItem('adminSession');
+            currentAdmin = null;
+            showLoginPage();
+            return;
+        }
+
+        // ✅ Save permanent session
+        const adminSession = {
+            uid: user.uid,
+            email: user.email,
+            isAdmin: true,
+            loginTime: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + SESSION_DURATION_MS).toISOString()
+        };
+        localStorage.setItem('adminSession', JSON.stringify(adminSession));
+        currentAdmin = adminSession;
+
+        console.log('✅ Admin auto-logged in:', user.email);
+        showDashboardPage(user);
+    } catch (e) {
+        console.error('Auth state login error:', e);
+        showLoginPage();
+    }
+}
+
+// ==================== SHOW LOGIN PAGE ====================
+function showLoginPage() {
+    const loginPage = document.getElementById('loginPage');
+    const dashboardPage = document.getElementById('dashboardPage');
+    if (loginPage) loginPage.style.display = 'block';
+    if (dashboardPage) dashboardPage.style.display = 'none';
+
+    // Reset login button
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+    }
+
+    // Check setup mode
+    checkSetupMode();
+}
+
+// ==================== SHOW DASHBOARD PAGE ====================
+function showDashboardPage(user) {
+    const loginPage = document.getElementById('loginPage');
+    const dashboardPage = document.getElementById('dashboardPage');
+    if (loginPage) loginPage.style.display = 'none';
+    if (dashboardPage) dashboardPage.style.display = 'block';
+
+    document.getElementById('adminEmail').textContent = user.email;
+    document.getElementById('adminAvatar').textContent = user.email.charAt(0).toUpperCase();
+    loadDashboard();
 }
 
 // ==================== SECRET SETUP MODE CHECK ====================
@@ -129,7 +226,6 @@ function checkSetupMode() {
     const setupParam = params.get('setup');
     
     if (setupParam === SETUP_KEY) {
-        // Secret signup mode - show signup form
         console.log('🔐 Secret setup mode activated');
         const signupForm = document.getElementById('signupForm');
         const loginForm = document.getElementById('loginForm');
@@ -138,7 +234,6 @@ function checkSetupMode() {
             loginForm.style.display = 'none';
         }
     } else {
-        // Normal mode - only login
         const signupForm = document.getElementById('signupForm');
         const loginForm = document.getElementById('loginForm');
         if (signupForm && loginForm) {
@@ -379,7 +474,6 @@ async function restoreUserWithSafety(uid) {
 
 // ==================== SIGNUP (Secret - sirf ?setup=1 se) ====================
 async function handleSignup() {
-    // ✅ Security check - sirf secret URL se signup
     const params = new URLSearchParams(window.location.search);
     if (params.get('setup') !== SETUP_KEY) {
         const errorEl = document.getElementById('loginError');
@@ -441,7 +535,6 @@ async function handleSignup() {
             document.getElementById('loginEmail').value = email;
             successEl.classList.remove('show');
             showNotification('Admin created! Please login.', 'success');
-            // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
         }, 2000);
 
@@ -481,6 +574,7 @@ async function handleLogin() {
         return;
     }
 
+    isLoggingIn = true;
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner"></div> Logging in...';
     errorEl.classList.remove('show');
@@ -490,23 +584,25 @@ async function handleLogin() {
         const result = await auth.signInWithEmailAndPassword(email, password);
         const user = result.user;
 
-        // Check admin in Backup Firebase only
+        // Check admin in Backup Firebase
         const snap = await backupDB.ref('admins/' + user.uid).once('value');
         if (!snap.exists()) {
             await auth.signOut();
-            errorEl.textContent = '⛔ Unauthorized: Not an admin. Please sign up first via setup URL.';
+            errorEl.textContent = '⛔ Unauthorized: Not an admin.';
             errorEl.classList.add('show');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+            isLoggingIn = false;
             return;
         }
 
+        // ✅ Save permanent session
         const adminSession = {
             uid: user.uid,
             email: user.email,
             isAdmin: true,
             loginTime: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            expiresAt: new Date(Date.now() + SESSION_DURATION_MS).toISOString()
         };
         localStorage.setItem('adminSession', JSON.stringify(adminSession));
         currentAdmin = adminSession;
@@ -516,14 +612,12 @@ async function handleLogin() {
         successEl.classList.add('show');
 
         setTimeout(() => {
-            document.getElementById('loginPage').style.display = 'none';
-            document.getElementById('dashboardPage').style.display = 'block';
-            document.getElementById('adminEmail').textContent = user.email;
-            document.getElementById('adminAvatar').textContent = user.email.charAt(0).toUpperCase();
-            loadDashboard();
+            isLoggingIn = false;
+            showDashboardPage(user);
         }, 1000);
 
     } catch (err) {
+        isLoggingIn = false;
         console.error('Login error:', err);
         let msg = '❌ Login failed. Please try again.';
         if (err.code === 'auth/user-not-found') {
@@ -536,6 +630,8 @@ async function handleLogin() {
             msg = '❌ Too many attempts. Try again later.';
         } else if (err.code === 'auth/invalid-email') {
             msg = '❌ Invalid email format.';
+        } else if (err.code === 'auth/network-request-failed') {
+            msg = '❌ Network error. Check your internet.';
         }
         errorEl.textContent = msg;
         errorEl.classList.add('show');
@@ -546,64 +642,28 @@ async function handleLogin() {
 
 // ==================== LOGOUT ====================
 function adminLogout() {
-    if (!confirm('Logout?')) return;
+    if (!confirm('Logout? Aapko dobara login karna padega.')) return;
 
     cleanupBackupListeners();
     localStorage.removeItem('adminSession');
     currentAdmin = null;
     auth.signOut();
-    document.getElementById('dashboardPage').style.display = 'none';
-    document.getElementById('loginPage').style.display = 'block';
-    document.getElementById('loginForm').style.display = 'block';
-    document.getElementById('signupForm').style.display = 'none';
-
-    const loginBtn = document.getElementById('loginBtn');
-    if (loginBtn) {
-        loginBtn.disabled = false;
-        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
-    }
-    const signupBtn = document.getElementById('signupBtn');
-    if (signupBtn) {
-        signupBtn.disabled = false;
-        signupBtn.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin Account';
-    }
-
+    
+    showLoginPage();
     console.log('👋 Logged out, listeners cleaned up');
-}
-
-// ==================== SESSION CHECK ====================
-function checkSession() {
-    const session = localStorage.getItem('adminSession');
-    if (!session) return;
-
-    try {
-        const admin = JSON.parse(session);
-        if (admin.expiresAt && new Date(admin.expiresAt) > new Date()) {
-            currentAdmin = admin;
-            document.getElementById('loginPage').style.display = 'none';
-            document.getElementById('dashboardPage').style.display = 'block';
-            document.getElementById('adminEmail').textContent = admin.email;
-            document.getElementById('adminAvatar').textContent = admin.email.charAt(0).toUpperCase();
-            loadDashboard();
-            return;
-        } else {
-            localStorage.removeItem('adminSession');
-        }
-    } catch (e) {
-        localStorage.removeItem('adminSession');
-    }
 }
 
 // ==================== UI TOGGLE ====================
 function showLogin() {
-    document.getElementById('signupForm').style.display = 'none';
-    document.getElementById('loginForm').style.display = 'block';
+    const signupForm = document.getElementById('signupForm');
+    const loginForm = document.getElementById('loginForm');
+    if (signupForm) signupForm.style.display = 'none';
+    if (loginForm) loginForm.style.display = 'block';
     document.getElementById('loginError').classList.remove('show');
     document.getElementById('loginSuccess').classList.remove('show');
 }
 
 function showSignup() {
-    // ✅ Block signup if not in setup mode
     const params = new URLSearchParams(window.location.search);
     if (params.get('setup') !== SETUP_KEY) {
         showNotification('⛔ Signup disabled', 'error');
@@ -705,7 +765,7 @@ function executeConfirmed() {
 async function loadDashboard() {
     await checkStatus();
     renderLogs();
-    addLog('System Started', 'success', 'v2.1 - Secure');
+    addLog('System Started', 'success', 'v2.2 - Permanent Session');
     console.log('✅ RND Backup System Ready');
     console.log('📧 Admin:', currentAdmin?.email);
     console.log('📊 Backup Paths:', BACKUP_PATHS);
