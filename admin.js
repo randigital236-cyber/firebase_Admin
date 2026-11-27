@@ -21,7 +21,8 @@ const BACKUP_CONFIG = {
 };
 
 // Rules me jo admin email hai (rules ke hisaab se admin-only paths isi se access hote hain)
-const MAIN_ADMIN_EMAIL = 'admin@rndstaking.com';
+const MAIN_ADMIN_EMAILS = ['admin@rndstaking.com', 'randigital236@gmail.com']; // rules me yahi do email admin hain
+const MAIN_ADMIN_EMAIL = 'randigital236@gmail.com'; // messages me dikhane ke liye
 const BUMPER = 'bumper_referral_offer_2026';
 
 // Jo paths backup hote hain
@@ -82,7 +83,7 @@ function cleanMeta(d) {
 async function isMainAdmin() {
     const u = auth.currentUser;
     if (!u) return false;
-    if (u.email === MAIN_ADMIN_EMAIL) return true;
+    if (MAIN_ADMIN_EMAILS.includes((u.email || '').toLowerCase())) return true;
     try { return (await mainDB.ref('users/' + u.uid + '/role').once('value')).val() === 'admin'; } catch (e) { return false; }
 }
 
