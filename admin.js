@@ -1,10 +1,10 @@
-// ==================== RND BACKUP SYSTEM v2.2 - PERMANENT SESSION ====================
-// ✅ Fix 1: Permanent session (999 days) - no more repeated login
-// ✅ Fix 2: Firebase Auth state sync - proper auto-login
-// ✅ Fix 3: Session + Auth mismatch handling
-// ✅ Fix 4: Signup ONLY via secret URL (?setup=1)
-// ✅ Fix 5: Signup link hidden
-// ✅ Fix 6: All previous fixes retained
+// ==================== RND BACKUP SYSTEM v3.0 ====================
+// ✅ Backup login ke BAAD start hota hai (rules ke saath permission-denied fix)
+// ✅ Backup = exact mirror, DELETE kabhi backup se nahi hota (set() ki jagah update())
+// ✅ Per-user restore: sirf UID daalo -> users + deposits + withdrawals + transactions + referrals + bumper offer + usernames + referralCodes sab wapas
+// ✅ Restore sirf MISSING records likhta hai (live balances/records overwrite nahi hote), sirf user profile overwrite (confirm ke baad)
+// ✅ Restore Full Database = sirf missing data wapas (purane backup se live data roll-back nahi hoga)
+// ✅ Rules-denied paths skip hote hain, error nahi
 
 // ==================== FIREBASE CONFIG ====================
 const MAIN_CONFIG = {
@@ -16,173 +16,223 @@ const MAIN_CONFIG = {
     messagingSenderId: "468625887938",
     appId: "1:468625887938:web:5cb4ddbcf31b6fc0a4615b"
 };
-
 const BACKUP_CONFIG = {
     databaseURL: "https://myapp-ee226-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
-const BACKUP_PATHS = [
-    'users',
-    'deposits',
-    'depositHistory',
-    'withdrawals',
-    'usedTransactions',
-    'processingTransactions',
-    'settings',
-    'usernames'
+// Rules me jo admin email hai (rules ke hisaab se admin-only paths isi se access hote hain)
+const MAIN_ADMIN_EMAIL = 'admin@rndstaking.com';
+const BUMPER = 'bumper_referral_offer_2026';
+
+// Jo paths backup hote hain
+const SYNC_PATHS = [
+    'users', 'deposits', 'depositHistory', 'withdrawals', 'usedTransactions',
+    'processingTransactions', 'settings', 'usernames', 'transactions', 'transfers',
+    'referrals', 'referralCodes', 'notifications', 'transferRequests', 'direct_offer',
+    'rankRewards',
+    BUMPER + '/withdrawals', BUMPER + '/user_withdrawals', BUMPER + '/rewards',
+    BUMPER + '/transactions', BUMPER + '/user_claims', BUMPER + '/purchases'
 ];
+// Per-user restore: in paths me key = uid
+const UID_KEYED = ['rankRewards', BUMPER + '/rewards', BUMPER + '/user_withdrawals', BUMPER + '/user_claims'];
+// Per-user restore: in paths me value = uid (username -> uid, code -> uid)
+const VALUE_IS_UID = ['usernames', 'referralCodes'];
+// Per-user restore: in collections me record ka owner field uid ke barabar ho
+const SCAN_PATHS = [
+    'deposits', 'depositHistory', 'withdrawals', 'transactions', 'transfers', 'referrals',
+    'notifications', 'transferRequests', 'usedTransactions', 'processingTransactions',
+    BUMPER + '/withdrawals', BUMPER + '/transactions'
+];
+const OWNER_FIELDS = ['userId', 'uid', 'userUid', 'senderUid', 'receiverUid', 'fromUid', 'toUid', 'buyerUid'];
 
-// ✅ SECRET SETUP KEY
-const SETUP_KEY = '1';
-
-// ✅ SESSION DURATION: 999 days (permanent)
-const SESSION_DURATION_MS = 999 * 24 * 60 * 60 * 1000;
+const SETUP_KEY = '1'; // ⚠️ isse lamba random secret bana lein (?setup=<key>)
 
 // ==================== GLOBAL ====================
 let mainApp, backupApp, mainDB, backupDB, auth;
 let currentAdmin = null;
 let pendingAction = null;
 let backupStarted = false;
-let isInitialBackupDone = false;
 let backupListeners = [];
 let isLoggingIn = false;
+let cache = {};          // path -> {key: JSON} (duplicate writes rokne ke liye)
+let skippedPaths = [];   // rules ki wajah se read nahi hue
 
-// ==================== RETRY HELPER ====================
-async function retryOperation(operation, maxRetries = 3, delay = 1000) {
-    let lastError = null;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            return await operation();
-        } catch (e) {
-            lastError = e;
-            console.log(`⏳ Retry ${attempt}/${maxRetries} failed:`, e.message);
-            if (attempt < maxRetries) {
-                await new Promise(r => setTimeout(r, delay * attempt));
-            }
+// ==================== HELPERS ====================
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const isDenied = e => e && (e.code === 'PERMISSION_DENIED' || /permission_denied/i.test(e.message || ''));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function retryOperation(op, maxRetries = 3, delay = 1000) {
+    let last;
+    for (let i = 1; i <= maxRetries; i++) {
+        try { return await op(); } catch (e) {
+            last = e;
+            if (isDenied(e)) throw e; // retry se fayda nahi
+            if (i < maxRetries) await sleep(delay * i);
         }
     }
-    throw lastError;
+    throw last;
 }
 
-// ==================== SAVE BACKUP LOG ====================
+function cleanMeta(d) {
+    if (d && typeof d === 'object') { delete d._backupTime; delete d.backupUpdatedAt; }
+    return d;
+}
+
+async function isMainAdmin() {
+    const u = auth.currentUser;
+    if (!u) return false;
+    if (u.email === MAIN_ADMIN_EMAIL) return true;
+    try { return (await mainDB.ref('users/' + u.uid + '/role').once('value')).val() === 'admin'; } catch (e) { return false; }
+}
+
+// Sirf keys (data download nahi) - REST shallow
+async function shallowKeys(db, path, authed) {
+    let url = `${db.app.options.databaseURL}/${path}.json?shallow=true`;
+    if (authed) url += `&auth=${await auth.currentUser.getIdToken()}`;
+    const r = await fetch(url);
+    if (r.status === 401 || r.status === 403) return null; // denied
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' (' + path + ')');
+    const j = await r.json();
+    if (j === null) return [];
+    return typeof j === 'object' ? Object.keys(j) : ['(value)'];
+}
+
 async function saveBackupLog(uid, path, action, status, details) {
     try {
-        const logData = {
-            uid: uid || 'system',
-            path: path || 'all',
-            action: action || 'backup',
-            status: status || 'success',
-            details: details || '',
-            timestamp: firebase.database.ServerValue.TIMESTAMP,
-            date: new Date().toISOString()
-        };
-        await backupDB.ref('backupLogs').push(logData);
-    } catch (e) {
-        console.error('❌ Failed to save log:', e);
-    }
-}
-
-// ==================== CLEANUP LISTENERS ====================
-function cleanupBackupListeners() {
-    if (backupListeners.length > 0) {
-        console.log('🧹 Cleaning up', backupListeners.length, 'listeners...');
-        backupListeners.forEach(item => {
-            try {
-                item.ref.off(item.event, item.callback);
-            } catch (e) {
-                console.error('Cleanup error:', e);
-            }
+        await backupDB.ref('backupLogs').push({
+            uid: uid || 'system', path: path || 'all', action: action || 'backup',
+            status: status || 'success', details: details || '',
+            timestamp: firebase.database.ServerValue.TIMESTAMP, date: new Date().toISOString()
         });
-        backupListeners = [];
-        backupStarted = false;
-        console.log('✅ Listeners cleaned up');
+    } catch (e) { console.error('Log save failed:', e); }
+}
+
+// ==================== LISTENERS ====================
+function cleanupBackupListeners() {
+    backupListeners.forEach(i => { try { i.ref.off(i.event, i.callback); } catch (e) { } });
+    backupListeners = [];
+    backupStarted = false;
+    cache = {};
+}
+
+function attachListeners(path) {
+    const ref = mainDB.ref(path);
+    const handler = action => async snap => {
+        try {
+            const k = snap.key, val = snap.val();
+            if (val === null) return;
+            const j = JSON.stringify(val);
+            if (cache[path] && cache[path][k] === j) return; // koi change nahi
+            await retryOperation(() => backupDB.ref(path + '/' + k).set(val));
+            (cache[path] = cache[path] || {})[k] = j;
+        } catch (e) {
+            console.error('❌ Auto backup failed:', path, e);
+            saveBackupLog(snap.key, path, action, 'failed', e.message);
+        }
+    };
+    const onErr = e => console.error('Listener cancelled:', path, e.message);
+    const add = handler('auto_backup_add'), chg = handler('auto_backup_update');
+    ref.on('child_added', add, onErr);
+    ref.on('child_changed', chg, onErr);
+    backupListeners.push({ ref, event: 'child_added', callback: add }, { ref, event: 'child_changed', callback: chg });
+    // child_removed ko JAAN-BUJH kar listen nahi kiya: DELETE backup me nahi jayega
+}
+
+// ==================== SYNC (main -> backup, sirf naya/badla hua) ====================
+async function syncPath(path) {
+    try {
+        const data = (await mainDB.ref(path).once('value')).val();
+        if (data === null) return { path, status: 'empty', written: 0 };
+        if (typeof data !== 'object') {
+            await backupDB.ref(path).set(data);
+            return { path, status: 'ok', written: 1 };
+        }
+        const bdata = (await backupDB.ref(path).once('value')).val() || {};
+        const changed = Object.keys(data).filter(k => JSON.stringify(data[k]) !== JSON.stringify(bdata[k]));
+        for (let i = 0; i < changed.length; i += 100) {
+            const chunk = {};
+            changed.slice(i, i + 100).forEach(k => { chunk[k] = data[k]; });
+            await retryOperation(() => backupDB.ref(path).update(chunk)); // update = koi purani key delete nahi hoti
+        }
+        cache[path] = {};
+        Object.keys(data).forEach(k => { cache[path][k] = JSON.stringify(data[k]); });
+        return { path, status: 'ok', written: changed.length };
+    } catch (e) {
+        if (isDenied(e)) return { path, status: 'denied' };
+        console.error('Sync failed:', path, e);
+        return { path, status: 'failed', error: e.message };
     }
 }
 
-// ==================== INIT ====================
+async function syncAll(onProgress) {
+    const results = [];
+    for (let i = 0; i < SYNC_PATHS.length; i++) {
+        if (onProgress) onProgress(SYNC_PATHS[i], i, SYNC_PATHS.length);
+        results.push(await syncPath(SYNC_PATHS[i]));
+    }
+    skippedPaths = results.filter(r => r.status === 'denied').map(r => r.path);
+    return results;
+}
+
+async function startBackupEngine() {
+    if (backupStarted) return;
+    backupStarted = true;
+    try {
+        if (!(await isMainAdmin())) {
+            showNotification('⚠️ ' + MAIN_ADMIN_EMAIL + ' se login nahi hai - admin-only data ka backup/restore nahi hoga', 'warning', 9000);
+        }
+        const results = await syncAll();
+        const written = results.reduce((a, r) => a + (r.written || 0), 0);
+        const failed = results.filter(r => r.status === 'failed').length;
+        results.filter(r => r.status === 'ok' || r.status === 'empty').forEach(r => attachListeners(r.path));
+        addLog('Auto Sync', failed ? 'warning' : 'success',
+            `${written} records synced, ${skippedPaths.length} paths denied by rules, ${failed} failed`);
+        console.log('🚫 Skipped (rules):', skippedPaths);
+        checkStatus(true);
+    } catch (e) {
+        console.error('Backup engine error:', e);
+        addLog('Auto Sync', 'failed', e.message);
+        backupStarted = false;
+    }
+}
+
+// ==================== AUTH / INIT ====================
 function initFirebase() {
-    try {
-        mainApp = firebase.app('mainApp');
-    } catch (e) {
-        mainApp = firebase.initializeApp(MAIN_CONFIG, 'mainApp');
-    }
-    try {
-        backupApp = firebase.app('backupApp');
-    } catch (e) {
-        backupApp = firebase.initializeApp(BACKUP_CONFIG, 'backupApp');
-    }
+    try { mainApp = firebase.app('mainApp'); } catch (e) { mainApp = firebase.initializeApp(MAIN_CONFIG, 'mainApp'); }
+    try { backupApp = firebase.app('backupApp'); } catch (e) { backupApp = firebase.initializeApp(BACKUP_CONFIG, 'backupApp'); }
     mainDB = firebase.database(mainApp);
     backupDB = firebase.database(backupApp);
     auth = firebase.auth(mainApp);
-    console.log('✅ Firebase initialized');
 
-    // ✅ Set Firebase Auth persistence to LOCAL (browser band karne ke baad bhi login rahe)
-    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-        .then(() => console.log('✅ Auth persistence: LOCAL'))
-        .catch(e => console.error('Persistence error:', e));
-
-    // ✅ Start backup listeners
-    startInitialFullBackup().then(() => {
-        startSafeAutoBackup();
-    }).catch(e => {
-        console.error('Init backup error:', e);
-        startSafeAutoBackup();
-    });
-
-    // ✅ Check setup mode
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e => console.error('Persistence error:', e));
     checkSetupMode();
 
-    // ✅ Firebase Auth state listener - MOST IMPORTANT for auto-login
     auth.onAuthStateChanged(async (user) => {
-        console.log('🔄 Auth state changed:', user ? user.email : 'No user');
-        
-        if (isLoggingIn) {
-            console.log('⏳ Login in progress, skipping auth state change');
-            return;
-        }
-
+        if (isLoggingIn) return;
         if (user) {
-            // User logged in - verify admin
             await handleAuthStateLogin(user);
         } else {
-            // User logged out
-            const session = localStorage.getItem('adminSession');
-            if (session) {
-                console.log('⚠️ Firebase logged out but session exists - clearing session');
-                localStorage.removeItem('adminSession');
-                currentAdmin = null;
-            }
+            localStorage.removeItem('adminSession');
+            currentAdmin = null;
+            cleanupBackupListeners();
             showLoginPage();
         }
     });
 }
 
-// ==================== AUTH STATE LOGIN HANDLER ====================
 async function handleAuthStateLogin(user) {
     try {
-        // Check admin in Backup Firebase
         const snap = await backupDB.ref('admins/' + user.uid).once('value');
         if (!snap.exists()) {
-            console.log('⚠️ User is not admin');
             await auth.signOut();
             localStorage.removeItem('adminSession');
             currentAdmin = null;
             showLoginPage();
             return;
         }
-
-        // ✅ Save permanent session
-        const adminSession = {
-            uid: user.uid,
-            email: user.email,
-            isAdmin: true,
-            loginTime: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + SESSION_DURATION_MS).toISOString()
-        };
-        localStorage.setItem('adminSession', JSON.stringify(adminSession));
-        currentAdmin = adminSession;
-
-        console.log('✅ Admin auto-logged in:', user.email);
+        currentAdmin = { uid: user.uid, email: user.email, isAdmin: true };
+        localStorage.setItem('adminSession', JSON.stringify(currentAdmin));
         showDashboardPage(user);
     } catch (e) {
         console.error('Auth state login error:', e);
@@ -190,346 +240,149 @@ async function handleAuthStateLogin(user) {
     }
 }
 
-// ==================== SHOW LOGIN PAGE ====================
 function showLoginPage() {
-    const loginPage = document.getElementById('loginPage');
-    const dashboardPage = document.getElementById('dashboardPage');
-    if (loginPage) loginPage.style.display = 'block';
-    if (dashboardPage) dashboardPage.style.display = 'none';
-
-    // Reset login button
-    const loginBtn = document.getElementById('loginBtn');
-    if (loginBtn) {
-        loginBtn.disabled = false;
-        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
-    }
-
-    // Check setup mode
+    const lp = document.getElementById('loginPage'), dp = document.getElementById('dashboardPage');
+    if (lp) lp.style.display = 'block';
+    if (dp) dp.style.display = 'none';
+    const b = document.getElementById('loginBtn');
+    if (b) { b.disabled = false; b.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login'; }
     checkSetupMode();
 }
 
-// ==================== SHOW DASHBOARD PAGE ====================
 function showDashboardPage(user) {
-    const loginPage = document.getElementById('loginPage');
-    const dashboardPage = document.getElementById('dashboardPage');
-    if (loginPage) loginPage.style.display = 'none';
-    if (dashboardPage) dashboardPage.style.display = 'block';
-
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('dashboardPage').style.display = 'block';
     document.getElementById('adminEmail').textContent = user.email;
     document.getElementById('adminAvatar').textContent = user.email.charAt(0).toUpperCase();
     loadDashboard();
+    startBackupEngine(); // ✅ login ke BAAD
 }
 
-// ==================== SECRET SETUP MODE CHECK ====================
 function checkSetupMode() {
-    const params = new URLSearchParams(window.location.search);
-    const setupParam = params.get('setup');
-    
-    if (setupParam === SETUP_KEY) {
-        console.log('🔐 Secret setup mode activated');
-        const signupForm = document.getElementById('signupForm');
-        const loginForm = document.getElementById('loginForm');
-        if (signupForm && loginForm) {
-            signupForm.style.display = 'block';
-            loginForm.style.display = 'none';
-        }
-    } else {
-        const signupForm = document.getElementById('signupForm');
-        const loginForm = document.getElementById('loginForm');
-        if (signupForm && loginForm) {
-            signupForm.style.display = 'none';
-            loginForm.style.display = 'block';
-        }
-    }
+    const on = new URLSearchParams(window.location.search).get('setup') === SETUP_KEY;
+    const s = document.getElementById('signupForm'), l = document.getElementById('loginForm');
+    if (s && l) { s.style.display = on ? 'block' : 'none'; l.style.display = on ? 'none' : 'block'; }
 }
 
-// ==================== INITIAL FULL BACKUP ====================
-async function startInitialFullBackup() {
-    if (isInitialBackupDone) {
-        console.log('✅ Initial backup already done');
-        return;
-    }
-
-    console.log('📦 Checking initial backup status...');
-
-    try {
-        const mainSnap = await mainDB.ref('users').once('value');
-        const backupSnap = await backupDB.ref('users').once('value');
-
-        const mainCount = Object.keys(mainSnap.val() || {}).length;
-        const backupCount = Object.keys(backupSnap.val() || {}).length;
-
-        console.log(`📊 Main Users: ${mainCount}, Backup Users: ${backupCount}`);
-
-        if (mainCount === 0) {
-            console.log('ℹ️ No users in Main Firebase, skipping initial backup');
-            isInitialBackupDone = true;
-            return;
-        }
-
-        if (backupCount >= mainCount) {
-            console.log(`✅ Backup already has ${backupCount} users (>= ${mainCount}), skipping initial full backup`);
-            isInitialBackupDone = true;
-            return;
-        }
-
-        console.log(`🔄 Initial backup needed: Main ${mainCount} > Backup ${backupCount}`);
-        addLog('Initial Full Backup', 'info', `Main: ${mainCount}, Backup: ${backupCount} - Starting...`);
-
-        let synced = 0;
-        let failed = 0;
-        const total = BACKUP_PATHS.length;
-
-        for (const path of BACKUP_PATHS) {
-            try {
-                const snap = await mainDB.ref(path).once('value');
-                const data = snap.val();
-                if (data) {
-                    await retryOperation(async () => {
-                        await backupDB.ref(path).set(data);
-                    });
-                    synced++;
-                    console.log(`✅ Initial Backup: ${path} done`);
-                } else {
-                    synced++;
-                }
-            } catch (e) {
-                failed++;
-                console.error(`❌ Initial Backup failed for ${path}:`, e);
-                await saveBackupLog('system', path, 'initial_backup', 'failed', e.message);
-            }
-            await new Promise(r => setTimeout(r, 100));
-        }
-
-        isInitialBackupDone = true;
-        console.log(`✅ Initial Full Backup Complete: ${synced}/${total} paths`);
-        addLog('Initial Full Backup', 'success', `${synced}/${total} paths (Users: ${mainCount})`);
-        await saveBackupLog('system', 'all', 'initial_backup', 'success', `${synced}/${total} paths, Users: ${mainCount}`);
-
-    } catch (e) {
-        console.error('❌ Initial Full Backup failed:', e);
-        addLog('Initial Full Backup', 'failed', e.message);
-        await saveBackupLog('system', 'all', 'initial_backup', 'failed', e.message);
-        isInitialBackupDone = true;
-    }
-}
-
-// ==================== SAFE AUTO BACKUP ====================
-function startSafeAutoBackup() {
-    if (backupStarted) {
-        console.log('⚠️ Auto Backup already started, skipping duplicate');
-        return;
-    }
-
-    cleanupBackupListeners();
-
-    backupStarted = true;
-    console.log('🔄 Starting Safe Auto Backup...');
-    console.log('✅ New Users, Deposits, Withdrawals will auto-backup');
-    console.log('❌ DELETE will be IGNORED (Safe!)');
-
-    BACKUP_PATHS.forEach(path => {
-        const addCallback = async (snap) => {
-            try {
-                const key = snap.key;
-                const data = snap.val();
-                if (data) {
-                    const dataWithTimestamp = {
-                        ...data,
-                        backupUpdatedAt: firebase.database.ServerValue.TIMESTAMP,
-                        _backupTime: new Date().toISOString()
-                    };
-                    await retryOperation(async () => {
-                        await backupDB.ref(path + '/' + key).set(dataWithTimestamp);
-                    });
-                    console.log('✅ Auto Backup (ADD):', path, key);
-                    await saveBackupLog(key, path, 'auto_backup_add', 'success');
-                }
-            } catch (e) {
-                console.error('❌ Auto Backup (ADD) failed:', path, e);
-                await saveBackupLog(snap.key, path, 'auto_backup_add', 'failed', e.message);
-            }
-        };
-        mainDB.ref(path).on('child_added', addCallback);
-        backupListeners.push({ ref: mainDB.ref(path), event: 'child_added', callback: addCallback });
-
-        const changeCallback = async (snap) => {
-            try {
-                const key = snap.key;
-                const data = snap.val();
-                if (data) {
-                    const dataWithTimestamp = {
-                        ...data,
-                        backupUpdatedAt: firebase.database.ServerValue.TIMESTAMP,
-                        _backupTime: new Date().toISOString()
-                    };
-                    await retryOperation(async () => {
-                        await backupDB.ref(path + '/' + key).set(dataWithTimestamp);
-                    });
-                    console.log('✅ Auto Backup (UPDATE):', path, key);
-                    await saveBackupLog(key, path, 'auto_backup_update', 'success');
-                }
-            } catch (e) {
-                console.error('❌ Auto Backup (UPDATE) failed:', path, e);
-                await saveBackupLog(snap.key, path, 'auto_backup_update', 'failed', e.message);
-            }
-        };
-        mainDB.ref(path).on('child_changed', changeCallback);
-        backupListeners.push({ ref: mainDB.ref(path), event: 'child_changed', callback: changeCallback });
-    });
-
-    addLog('Safe Auto Backup', 'success', 'Started - DELETE ignored');
-    console.log('✅ Safe Auto Backup Started');
-    console.log('📊 Monitoring:', BACKUP_PATHS.join(', '));
-    console.log(`📌 ${backupListeners.length} listeners active`);
-}
-
-// ==================== RESTORE USER ====================
+// ==================== RESTORE ONE USER (UID se) ====================
 async function restoreUserWithSafety(uid) {
     const container = document.getElementById('restoreResult');
-    container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner-sm"></div><p style="margin-top:8px;color:#94a3b8;">Checking user in Main Firebase...</p></div>';
+    const spin = msg => container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner-sm"></div><p style="margin-top:8px;color:#94a3b8;">' + esc(msg) + '</p></div>';
+    const alertBox = (cls, icon, html) => container.innerHTML = `<div class="alert alert-${cls}"><i class="fas fa-${icon}"></i><div>${html}</div></div>`;
 
     try {
-        const mainCheck = await mainDB.ref('users/' + uid).once('value');
-        const userExists = mainCheck.exists();
+        if (!(await isMainAdmin())) {
+            alertBox('danger', 'circle-exclamation', 'Restore ke liye <b>' + MAIN_ADMIN_EMAIL + '</b> (main admin) se login karein - rules ke hisaab se admin-only data tabhi likha ja sakta hai.');
+            return;
+        }
+        spin('Backup me user dhoondh rahe hain...');
+        const bu = await backupDB.ref('users/' + uid).once('value');
+        if (!bu.exists()) { alertBox('danger', 'circle-exclamation', 'User ' + esc(uid) + ' backup me nahi mila!'); return; }
+        const userExists = (await mainDB.ref('users/' + uid).once('value')).exists();
 
-        if (userExists) {
-            const confirmMsg = `⚠️ User ${uid} already exists in Main Firebase!\n\nAre you sure you want to OVERWRITE this user's data from backup?`;
-            if (!confirm(confirmMsg)) {
-                container.innerHTML = `
-                    <div class="alert alert-warning">
-                        <i class="fas fa-ban"></i>
-                        <div>Restore cancelled. User ${uid} already exists in Main Firebase.</div>
-                    </div>
-                `;
-                return;
-            }
+        // ---- plan banao: fullPath -> data ----
+        const plan = {};
+        const profileKey = 'users/' + uid;
+        plan[profileKey] = cleanMeta(bu.val());
+
+        spin('Is user ka baaki data backup se collect ho raha hai...');
+        for (const p of UID_KEYED) {
+            const s = await backupDB.ref(p + '/' + uid).once('value');
+            if (s.exists()) plan[p + '/' + uid] = cleanMeta(s.val());
+        }
+        for (const p of VALUE_IS_UID) {
+            const val = (await backupDB.ref(p).once('value')).val() || {};
+            Object.keys(val).forEach(k => { if (val[k] === uid) plan[p + '/' + k] = val[k]; });
+        }
+        for (const p of SCAN_PATHS) {
+            const val = (await backupDB.ref(p).once('value')).val() || {};
+            Object.keys(val).forEach(k => {
+                const v = val[k];
+                const owner = k === uid || k.startsWith(uid + '_') ||
+                    (v && typeof v === 'object' && OWNER_FIELDS.some(f => v[f] === uid));
+                if (owner) plan[p + '/' + k] = cleanMeta(v);
+            });
         }
 
-        const backupSnap = await backupDB.ref('users/' + uid).once('value');
-        if (!backupSnap.exists()) {
-            container.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-circle-exclamation"></i>
-                    User ${uid} not found in backup!
-                </div>
-            `;
+        // ---- main me jo pehle se maujood hai wo skip (profile ko chhod kar) ----
+        const keys = Object.keys(plan).filter(k => k !== profileKey);
+        const exist = await Promise.all(keys.map(k => mainDB.ref(k).once('value').then(s => s.exists())));
+        const skipped = [];
+        keys.forEach((k, i) => { if (exist[i]) { skipped.push(k); delete plan[k]; } });
+        if (userExists && !confirm(`⚠️ User ${uid} main Firebase me pehle se hai.\nProfile (users/${uid}) backup se OVERWRITE hogi.\nBaaki records jo main me hain wo nahi badlenge.\n\nContinue?`)) {
+            alertBox('warning', 'ban', 'Restore cancel kiya.');
             return;
         }
 
-        container.innerHTML = '<div style="text-align:center;padding:20px;"><div class="spinner-sm"></div><p style="margin-top:8px;color:#94a3b8;">Restoring user ' + uid + '...</p></div>';
+        const writeKeys = Object.keys(plan);
+        const summary = {};
+        writeKeys.forEach(k => { const top = k.split('/').slice(0, k.startsWith(BUMPER) ? 2 : 1).join('/'); summary[top] = (summary[top] || 0) + 1; });
+        const lines = Object.entries(summary).map(([k, n]) => `${k}: ${n}`).join(' | ');
+        spin('Restore ho raha hai (' + writeKeys.length + ' records)...');
 
-        let restored = 0;
-        let failed = 0;
-
-        for (const path of BACKUP_PATHS) {
-            try {
-                const snap = await backupDB.ref(path + '/' + uid).once('value');
-                let data = snap.val();
-                if (data) {
-                    if (data._backupTime) delete data._backupTime;
-                    if (data.backupUpdatedAt) delete data.backupUpdatedAt;
-
-                    await retryOperation(async () => {
-                        await mainDB.ref(path + '/' + uid).set(data);
-                    });
-                    restored++;
-                    console.log(`✅ Restored ${path}/${uid}`);
-                }
-            } catch (e) {
-                failed++;
-                console.error('Restore failed for', path, e);
+        // ---- ek atomic update, fail ho to ek-ek karke ----
+        let restored = 0; const failedKeys = [];
+        try {
+            await mainDB.ref().update(plan);
+            restored = writeKeys.length;
+        } catch (e) {
+            for (const k of writeKeys) {
+                try { await mainDB.ref(k).set(plan[k]); restored++; } catch (e2) { failedKeys.push(k + ' (' + (isDenied(e2) ? 'rules denied' : e2.message) + ')'); }
             }
         }
 
-        container.innerHTML = `
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i>
-                <div>
-                    <strong>User ${uid} restored!</strong>
-                    <br><small>Restored: ${restored} paths | Failed: ${failed}</small>
-                    ${userExists ? '<br><span style="color:#f59e0b;">⚠️ Existing user data was overwritten</span>' : ''}
-                </div>
-            </div>
-        `;
+        alertBox(failedKeys.length ? 'warning' : 'success', failedKeys.length ? 'triangle-exclamation' : 'check-circle',
+            `<strong>User ${esc(uid)} restore: ${restored}/${writeKeys.length} records</strong><br><small>${esc(lines)}</small>` +
+            (skipped.length ? `<br><small>Pehle se main me the (skip): ${skipped.length}</small>` : '') +
+            (userExists ? '<br><span style="color:#f59e0b;">⚠️ Profile overwrite hui</span>' : '') +
+            (failedKeys.length ? '<br><small style="color:#fca5a5;">Failed: ' + failedKeys.map(esc).join(', ') + '</small>' : '') +
+            '<br><small style="color:#94a3b8;">Note: Firebase Auth login account yahan se restore nahi hota.</small>');
 
-        showNotification(`User ${uid} restored!`, 'success');
-        addLog('Restore User', 'success', `UID: ${uid} (${restored} paths)`);
-        await saveBackupLog(uid, 'all', 'restore_user', 'success', `${restored} paths, existed: ${userExists}`);
-
+        showNotification(`User ${uid} restored (${restored})`, failedKeys.length ? 'warning' : 'success');
+        addLog('Restore User', failedKeys.length ? 'warning' : 'success', `UID: ${uid} (${restored}/${writeKeys.length})`);
+        await saveBackupLog(uid, 'all', 'restore_user', failedKeys.length ? 'warning' : 'success', `${restored}/${writeKeys.length}, existed: ${userExists}`);
         document.getElementById('restoreUid').value = '';
-        checkStatus();
-
+        checkStatus(true);
     } catch (e) {
-        container.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-circle-exclamation"></i>
-                Error: ${e.message}
-            </div>
-        `;
+        alertBox('danger', 'circle-exclamation', 'Error: ' + esc(e.message));
         addLog('Restore User', 'failed', `UID: ${uid} - ${e.message}`);
         await saveBackupLog(uid, 'all', 'restore_user', 'failed', e.message);
     }
 }
 
-// ==================== SIGNUP (Secret - sirf ?setup=1 se) ====================
-async function handleSignup() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('setup') !== SETUP_KEY) {
-        const errorEl = document.getElementById('loginError');
-        errorEl.textContent = '⛔ Signup disabled. Contact administrator.';
-        errorEl.classList.add('show');
-        return;
-    }
+function confirmRestoreUser() {
+    const uid = document.getElementById('restoreUid').value.trim();
+    if (!uid) { showNotification('Please enter a UID', 'warning'); return; }
+    if (/[.#$\[\]\/]/.test(uid)) { showNotification('Invalid UID', 'error'); return; }
+    restoreUserWithSafety(uid);
+}
 
+// ==================== SIGNUP (sirf ?setup=KEY se) ====================
+async function handleSignup() {
+    const errorEl = document.getElementById('loginError'), successEl = document.getElementById('loginSuccess');
+    if (new URLSearchParams(window.location.search).get('setup') !== SETUP_KEY) {
+        errorEl.textContent = '⛔ Signup disabled. Contact administrator.'; errorEl.classList.add('show'); return;
+    }
     const name = document.getElementById('signupName').value.trim();
     const email = document.getElementById('signupEmail').value.trim();
     const password = document.getElementById('signupPassword').value.trim();
-    const errorEl = document.getElementById('loginError');
-    const successEl = document.getElementById('loginSuccess');
     const btn = document.getElementById('signupBtn');
+    const fail = m => { errorEl.textContent = m; errorEl.classList.add('show'); };
+    if (!name) return fail('❌ Please enter your full name');
+    if (!email) return fail('❌ Please enter your email');
+    if (!password || password.length < 6) return fail('❌ Password must be at least 6 characters');
 
-    if (!name) {
-        errorEl.textContent = '❌ Please enter your full name';
-        errorEl.classList.add('show');
-        return;
-    }
-    if (!email) {
-        errorEl.textContent = '❌ Please enter your email';
-        errorEl.classList.add('show');
-        return;
-    }
-    if (!password || password.length < 6) {
-        errorEl.textContent = '❌ Password must be at least 6 characters';
-        errorEl.classList.add('show');
-        return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<div class="spinner"></div> Creating...';
-    errorEl.classList.remove('show');
-    successEl.classList.remove('show');
-
+    isLoggingIn = true;
+    btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Creating...';
+    errorEl.classList.remove('show'); successEl.classList.remove('show');
     try {
-        const result = await auth.createUserWithEmailAndPassword(email, password);
-        const user = result.user;
-
-        await backupDB.ref('admins/' + user.uid).set({
-            name: name,
-            email: email,
-            role: 'admin',
-            createdAt: new Date().toISOString()
-        });
-
-        console.log('✅ Admin created in Backup Firebase:', email);
-        successEl.textContent = '✅ Admin account created! Please login.';
-        successEl.classList.add('show');
-
+        const user = (await auth.createUserWithEmailAndPassword(email, password)).user;
+        await backupDB.ref('admins/' + user.uid).set({ name, email, role: 'admin', createdAt: new Date().toISOString() });
+        successEl.textContent = '✅ Admin account created! Please login.'; successEl.classList.add('show');
         await auth.signOut();
-
         setTimeout(() => {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin Account';
+            isLoggingIn = false;
+            btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin Account';
             document.getElementById('signupForm').style.display = 'none';
             document.getElementById('loginForm').style.display = 'block';
             document.getElementById('loginEmail').value = email;
@@ -537,148 +390,71 @@ async function handleSignup() {
             showNotification('Admin created! Please login.', 'success');
             window.history.replaceState({}, document.title, window.location.pathname);
         }, 2000);
-
     } catch (err) {
-        console.error('Signup error:', err);
-        let msg = '❌ Signup failed. Please try again.';
-        if (err.code === 'auth/email-already-in-use') {
-            msg = '❌ Email already registered. Please login.';
-        } else if (err.code === 'auth/weak-password') {
-            msg = '❌ Password too weak.';
-        } else if (err.code === 'auth/invalid-email') {
-            msg = '❌ Invalid email format.';
-        }
-        errorEl.textContent = msg;
-        errorEl.classList.add('show');
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin Account';
+        isLoggingIn = false;
+        const map = { 'auth/email-already-in-use': '❌ Email already registered. Please login.', 'auth/weak-password': '❌ Password too weak.', 'auth/invalid-email': '❌ Invalid email format.' };
+        fail(map[err.code] || '❌ Signup failed. Please try again.');
+        btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Admin Account';
     }
 }
 
-// ==================== LOGIN ====================
+// ==================== LOGIN / LOGOUT ====================
 async function handleLogin() {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
-    const errorEl = document.getElementById('loginError');
-    const successEl = document.getElementById('loginSuccess');
+    const errorEl = document.getElementById('loginError'), successEl = document.getElementById('loginSuccess');
     const btn = document.getElementById('loginBtn');
-
-    if (!email) {
-        errorEl.textContent = '❌ Please enter your email';
-        errorEl.classList.add('show');
-        return;
-    }
-    if (!password) {
-        errorEl.textContent = '❌ Please enter your password';
-        errorEl.classList.add('show');
-        return;
-    }
+    const reset = () => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login'; isLoggingIn = false; };
+    const fail = m => { errorEl.textContent = m; errorEl.classList.add('show'); };
+    if (!email) return fail('❌ Please enter your email');
+    if (!password) return fail('❌ Please enter your password');
 
     isLoggingIn = true;
-    btn.disabled = true;
-    btn.innerHTML = '<div class="spinner"></div> Logging in...';
-    errorEl.classList.remove('show');
-    successEl.classList.remove('show');
-
+    btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Logging in...';
+    errorEl.classList.remove('show'); successEl.classList.remove('show');
     try {
-        const result = await auth.signInWithEmailAndPassword(email, password);
-        const user = result.user;
-
-        // Check admin in Backup Firebase
+        const user = (await auth.signInWithEmailAndPassword(email, password)).user;
         const snap = await backupDB.ref('admins/' + user.uid).once('value');
-        if (!snap.exists()) {
-            await auth.signOut();
-            errorEl.textContent = '⛔ Unauthorized: Not an admin.';
-            errorEl.classList.add('show');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
-            isLoggingIn = false;
-            return;
-        }
-
-        // ✅ Save permanent session
-        const adminSession = {
-            uid: user.uid,
-            email: user.email,
-            isAdmin: true,
-            loginTime: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + SESSION_DURATION_MS).toISOString()
-        };
-        localStorage.setItem('adminSession', JSON.stringify(adminSession));
-        currentAdmin = adminSession;
-
-        console.log('✅ Admin logged in:', email);
-        successEl.textContent = '✅ Login successful!';
-        successEl.classList.add('show');
-
-        setTimeout(() => {
-            isLoggingIn = false;
-            showDashboardPage(user);
-        }, 1000);
-
+        if (!snap.exists()) { await auth.signOut(); fail('⛔ Unauthorized: Not an admin.'); reset(); return; }
+        currentAdmin = { uid: user.uid, email: user.email, isAdmin: true };
+        localStorage.setItem('adminSession', JSON.stringify(currentAdmin));
+        successEl.textContent = '✅ Login successful!'; successEl.classList.add('show');
+        setTimeout(() => { isLoggingIn = false; showDashboardPage(user); }, 800);
     } catch (err) {
-        isLoggingIn = false;
-        console.error('Login error:', err);
-        let msg = '❌ Login failed. Please try again.';
-        if (err.code === 'auth/user-not-found') {
-            msg = '❌ No account found. Please contact admin.';
-        } else if (err.code === 'auth/wrong-password') {
-            msg = '❌ Incorrect password.';
-        } else if (err.code === 'auth/invalid-credential') {
-            msg = '❌ Invalid email or password.';
-        } else if (err.code === 'auth/too-many-requests') {
-            msg = '❌ Too many attempts. Try again later.';
-        } else if (err.code === 'auth/invalid-email') {
-            msg = '❌ Invalid email format.';
-        } else if (err.code === 'auth/network-request-failed') {
-            msg = '❌ Network error. Check your internet.';
-        }
-        errorEl.textContent = msg;
-        errorEl.classList.add('show');
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
+        const map = {
+            'auth/user-not-found': '❌ No account found. Please contact admin.', 'auth/wrong-password': '❌ Incorrect password.',
+            'auth/invalid-credential': '❌ Invalid email or password.', 'auth/too-many-requests': '❌ Too many attempts. Try again later.',
+            'auth/invalid-email': '❌ Invalid email format.', 'auth/network-request-failed': '❌ Network error. Check your internet.'
+        };
+        fail(map[err.code] || '❌ Login failed. Please try again.');
+        reset();
     }
 }
 
-// ==================== LOGOUT ====================
 function adminLogout() {
     if (!confirm('Logout? Aapko dobara login karna padega.')) return;
-
     cleanupBackupListeners();
     localStorage.removeItem('adminSession');
     currentAdmin = null;
     auth.signOut();
-    
     showLoginPage();
-    console.log('👋 Logged out, listeners cleaned up');
 }
 
-// ==================== UI TOGGLE ====================
 function showLogin() {
-    const signupForm = document.getElementById('signupForm');
-    const loginForm = document.getElementById('loginForm');
-    if (signupForm) signupForm.style.display = 'none';
-    if (loginForm) loginForm.style.display = 'block';
+    document.getElementById('signupForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
     document.getElementById('loginError').classList.remove('show');
     document.getElementById('loginSuccess').classList.remove('show');
 }
-
 function showSignup() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('setup') !== SETUP_KEY) {
-        showNotification('⛔ Signup disabled', 'error');
-        return;
-    }
+    if (new URLSearchParams(window.location.search).get('setup') !== SETUP_KEY) { showNotification('⛔ Signup disabled', 'error'); return; }
     document.getElementById('signupForm').style.display = 'block';
     document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('loginError').classList.remove('show');
-    document.getElementById('loginSuccess').classList.remove('show');
 }
 
-// ==================== NOTIFICATION ====================
+// ==================== UI ====================
 function showNotification(msg, type, duration) {
-    type = type || 'success';
-    duration = duration || 4000;
+    type = type || 'success'; duration = duration || 4000;
     const n = document.getElementById('notification');
     if (!n) return;
     const colors = { success: '#10b981', error: '#ef4444', warning: '#f59e0b', info: '#6366f1' };
@@ -694,11 +470,7 @@ function formatDate(ts) {
     try { return new Date(ts).toLocaleString('en-IN'); } catch (e) { return '--'; }
 }
 
-// ==================== LOCAL LOGS ====================
-function getLogs() {
-    return JSON.parse(localStorage.getItem('rnd_backup_logs') || '[]');
-}
-
+function getLogs() { try { return JSON.parse(localStorage.getItem('rnd_backup_logs') || '[]'); } catch (e) { return []; } }
 function addLog(action, status, details) {
     const logs = getLogs();
     logs.unshift({ time: new Date().toISOString(), action, status, details: details || '' });
@@ -706,37 +478,26 @@ function addLog(action, status, details) {
     localStorage.setItem('rnd_backup_logs', JSON.stringify(logs));
     renderLogs();
 }
-
 function clearLogs() {
     if (!confirm('Clear all logs?')) return;
     localStorage.setItem('rnd_backup_logs', '[]');
     renderLogs();
     showNotification('Logs cleared', 'success');
 }
-
 function renderLogs() {
-    const container = document.getElementById('activityLog');
-    if (!container) return;
+    const c = document.getElementById('activityLog');
+    if (!c) return;
     const logs = getLogs();
-    if (logs.length === 0) {
-        container.innerHTML = '<div class="empty-state"><i class="fas fa-clock"></i><p>No activity yet</p></div>';
-        return;
-    }
-    let html = '';
-    logs.forEach(log => {
-        const cls = log.status === 'success' ? 'success' : log.status === 'failed' ? 'danger' : 'warning';
-        html += `
-            <div class="log-entry">
-                <span><strong>${log.action}</strong> ${log.details ? '<span style="color:#94a3b8;font-size:0.8rem;">' + log.details + '</span>' : ''}</span>
-                <span><span class="tag tag-${cls}">${log.status}</span></span>
-                <span class="log-time">${formatDate(log.time)}</span>
-            </div>
-        `;
-    });
-    container.innerHTML = html;
+    if (!logs.length) { c.innerHTML = '<div class="empty-state"><i class="fas fa-clock"></i><p>No activity yet</p></div>'; return; }
+    c.innerHTML = logs.map(l => {
+        const cls = l.status === 'success' ? 'success' : l.status === 'failed' ? 'danger' : 'warning';
+        return `<div class="log-entry">
+            <span><strong>${esc(l.action)}</strong> ${l.details ? '<span style="color:#94a3b8;font-size:0.8rem;">' + esc(l.details) + '</span>' : ''}</span>
+            <span><span class="tag tag-${cls}">${esc(l.status)}</span></span>
+            <span class="log-time">${formatDate(l.time)}</span></div>`;
+    }).join('');
 }
 
-// ==================== CONFIRM DIALOG ====================
 function showConfirm(title, message, icon, action, actionLabel) {
     pendingAction = action;
     document.getElementById('confirmTitle').textContent = title;
@@ -746,56 +507,41 @@ function showConfirm(title, message, icon, action, actionLabel) {
     document.getElementById('confirmBtn').textContent = actionLabel || 'Confirm';
     document.getElementById('confirmOverlay').classList.add('active');
 }
-
-function closeConfirm() {
-    document.getElementById('confirmOverlay').classList.remove('active');
-    pendingAction = null;
-}
-
+function closeConfirm() { document.getElementById('confirmOverlay').classList.remove('active'); pendingAction = null; }
 function executeConfirmed() {
     document.getElementById('confirmOverlay').classList.remove('active');
-    if (pendingAction) {
-        const action = pendingAction;
-        pendingAction = null;
-        action();
-    }
+    if (pendingAction) { const a = pendingAction; pendingAction = null; a(); }
 }
 
 // ==================== DASHBOARD ====================
-async function loadDashboard() {
-    await checkStatus();
+function loadDashboard() {
     renderLogs();
-    addLog('System Started', 'success', 'v2.2 - Permanent Session');
-    console.log('✅ RND Backup System Ready');
-    console.log('📧 Admin:', currentAdmin?.email);
-    console.log('📊 Backup Paths:', BACKUP_PATHS);
-    console.log('🔄 Auto Backup: ACTIVE (DELETE ignored)');
-    console.log(`📌 ${backupListeners.length} active listeners`);
+    addLog('System Started', 'success', 'v3.0');
 }
 
-// ==================== CHECK STATUS ====================
-async function checkStatus() {
-    showNotification('Checking status...', 'info');
+// ==================== CHECK STATUS (shallow - data download nahi hota) ====================
+async function checkStatus(quiet) {
+    if (!quiet) showNotification('Checking status...', 'info');
     try {
-        let mainTotal = 0, backupTotal = 0;
-        for (const path of BACKUP_PATHS) {
-            const m = await mainDB.ref(path).once('value');
-            const b = await backupDB.ref(path).once('value');
-            mainTotal += Object.keys(m.val() || {}).length;
-            backupTotal += Object.keys(b.val() || {}).length;
+        let missingTotal = 0, mainUsers = 0, backupUsers = 0; const skipped = [];
+        for (const path of SYNC_PATHS) {
+            const mk = await shallowKeys(mainDB, path, true);
+            const bk = await shallowKeys(backupDB, path, false);
+            if (mk === null || bk === null) { skipped.push(path); continue; }
+            const bset = new Set(bk);
+            missingTotal += mk.filter(k => !bset.has(k)).length;
+            if (path === 'users') { mainUsers = mk.length; backupUsers = bk.length; }
         }
-        document.getElementById('mainUsers').textContent = mainTotal;
-        document.getElementById('backupUsers').textContent = backupTotal;
-        const status = mainTotal === backupTotal ? '✅ Matched' : '⚠️ Mismatch';
-        document.getElementById('statusCount').textContent = status;
-        document.getElementById('statusCount').style.color = mainTotal === backupTotal ? '#10b981' : '#f59e0b';
-
-        const logs = getLogs();
-        const last = logs.find(l => l.action === 'Backup All Data' || l.action === 'Safe Auto Backup');
+        document.getElementById('mainUsers').textContent = mainUsers;
+        document.getElementById('backupUsers').textContent = backupUsers;
+        const ok = missingTotal === 0;
+        const st = document.getElementById('statusCount');
+        st.textContent = ok ? '✅ Matched' : '⚠️ ' + missingTotal + ' missing';
+        st.style.color = ok ? '#10b981' : '#f59e0b';
+        const last = getLogs().find(l => l.action === 'Backup All Data' || l.action === 'Auto Sync');
         document.getElementById('lastBackupTime').textContent = last ? formatDate(last.time) : '--';
-
-        showNotification(mainTotal === backupTotal ? '✅ Data matched!' : '⚠️ Data mismatch found!', mainTotal === backupTotal ? 'success' : 'warning');
-        addLog('Check Status', mainTotal === backupTotal ? 'success' : 'warning', `Main: ${mainTotal}, Backup: ${backupTotal}`);
+        if (!quiet) showNotification(ok ? '✅ Backup me sab maujood hai!' : '⚠️ ' + missingTotal + ' records backup me nahi hain', ok ? 'success' : 'warning');
+        addLog('Check Status', ok ? 'success' : 'warning', `Missing in backup: ${missingTotal}` + (skipped.length ? `, rules-denied: ${skipped.length}` : ''));
     } catch (e) {
         showNotification('Error checking status: ' + e.message, 'error');
     }
@@ -803,185 +549,96 @@ async function checkStatus() {
 
 // ==================== MANUAL BACKUP ====================
 function confirmBackup() {
-    showConfirm(
-        '📦 Backup All Data?',
-        'This will copy ALL data from Main Firebase to Backup Firebase. Continue?',
-        '⚠️',
-        function () { backupAllData(); },
-        'Yes, Backup Now'
-    );
+    showConfirm('📦 Backup All Data?', 'Main Firebase ka naya/badla hua data Backup me copy hoga. Backup me se kuch delete nahi hoga. Continue?', '⚠️', () => backupAllData(), 'Yes, Backup Now');
 }
 
 async function backupAllData() {
     const btn = document.querySelector('.btn-success');
-    const progressDiv = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
-
-    btn.disabled = true;
-    btn.innerHTML = '<div class="spinner-sm"></div> Backing up...';
-    progressDiv.classList.remove('hidden');
-    progressBar.style.width = '0%';
-
-    let synced = 0, failed = 0;
-    const total = BACKUP_PATHS.length;
-
+    const pd = document.getElementById('progressContainer'), bar = document.getElementById('progressBar'), txt = document.getElementById('progressText');
+    btn.disabled = true; btn.innerHTML = '<div class="spinner-sm"></div> Backing up...';
+    pd.classList.remove('hidden'); bar.style.width = '0%';
     try {
-        for (let i = 0; i < total; i++) {
-            const path = BACKUP_PATHS[i];
-            progressText.textContent = `Syncing: ${path}... (${i + 1}/${total})`;
-            progressBar.style.width = ((i / total) * 100) + '%';
-            try {
-                const snap = await mainDB.ref(path).once('value');
-                const data = snap.val();
-                if (data) {
-                    await retryOperation(async () => {
-                        await backupDB.ref(path).set(data);
-                    });
-                    synced++;
-                }
-            } catch (e) {
-                failed++;
-                console.error('Backup failed for', path, e);
-            }
-            await new Promise(r => setTimeout(r, 50));
-        }
-
-        progressBar.style.width = '100%';
-        progressText.textContent = `✅ Complete! ${synced}/${total} paths synced`;
-        showNotification(`Backup complete! ${synced}/${total} paths`, failed > 0 ? 'warning' : 'success');
-        addLog('Backup All Data', failed > 0 ? 'warning' : 'success', `${synced}/${total} paths`);
-        await saveBackupLog('system', 'all', 'manual_backup', failed > 0 ? 'warning' : 'success', `${synced}/${total} paths`);
-        checkStatus();
-
-        setTimeout(() => {
-            progressDiv.classList.add('hidden');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-rotate"></i> Backup All Data';
-        }, 3000);
-
+        const results = await syncAll((p, i, t) => { txt.textContent = `Syncing: ${p}... (${i + 1}/${t})`; bar.style.width = ((i / t) * 100) + '%'; });
+        const written = results.reduce((a, r) => a + (r.written || 0), 0);
+        const failed = results.filter(r => r.status === 'failed').length;
+        const denied = results.filter(r => r.status === 'denied').length;
+        bar.style.width = '100%';
+        txt.textContent = `✅ Complete! ${written} records updated` + (denied ? `, ${denied} paths rules se denied` : '') + (failed ? `, ${failed} failed` : '');
+        showNotification('Backup complete!', failed ? 'warning' : 'success');
+        addLog('Backup All Data', failed ? 'warning' : 'success', `${written} records, denied ${denied}, failed ${failed}`);
+        await saveBackupLog('system', 'all', 'manual_backup', failed ? 'warning' : 'success', `${written} records`);
+        checkStatus(true);
     } catch (e) {
-        progressText.textContent = '❌ Error: ' + e.message;
+        txt.textContent = '❌ Error: ' + e.message;
         showNotification('Backup failed: ' + e.message, 'error');
         addLog('Backup All Data', 'failed', e.message);
-        await saveBackupLog('system', 'all', 'manual_backup', 'failed', e.message);
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-rotate"></i> Backup All Data';
     }
+    setTimeout(() => { pd.classList.add('hidden'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-rotate"></i> Backup All Data'; }, 3000);
 }
 
-// ==================== RESTORE USER ====================
-function confirmRestoreUser() {
-    const uid = document.getElementById('restoreUid').value.trim();
-    if (!uid) {
-        showNotification('Please enter a UID', 'warning');
-        return;
-    }
-    restoreUserWithSafety(uid);
-}
-
-// ==================== RESTORE FULL ====================
+// ==================== RESTORE FULL (sirf MISSING data) ====================
 function confirmRestoreAll() {
-    showConfirm(
-        '🚨 Restore Full Database?',
-        '⚠️ WARNING: This will OVERWRITE ALL data in Main Firebase with Backup Firebase! This CANNOT be undone! Continue?',
-        '🚨',
-        function () { restoreAllDatabase(); },
-        'Yes, Restore All'
-    );
+    showConfirm('🚨 Restore Missing Data?',
+        'Jo records Backup me hain par Main Firebase me NAHI hain (delete ho gaye), sirf wahi wapas aayenge. Jo main me pehle se hai wo overwrite nahi hoga. Continue?',
+        '🚨', () => {
+            if (prompt('Confirm karne ke liye RESTORE type karein') !== 'RESTORE') { showNotification('Cancelled', 'warning'); return; }
+            restoreAllDatabase();
+        }, 'Yes, Restore Missing');
 }
 
 async function restoreAllDatabase() {
     const btn = document.querySelector('.btn-danger');
-    const progressDiv = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
-    const progressText = document.getElementById('progressText');
-
+    const pd = document.getElementById('progressContainer'), bar = document.getElementById('progressBar'), txt = document.getElementById('progressText');
     if (!btn) return;
-    btn.disabled = true;
-    btn.innerHTML = '<div class="spinner-sm"></div> Restoring...';
-    progressDiv.classList.remove('hidden');
-    progressBar.style.width = '0%';
-
+    btn.disabled = true; btn.innerHTML = '<div class="spinner-sm"></div> Restoring...';
+    pd.classList.remove('hidden'); bar.style.width = '0%';
+    let restored = 0, failed = 0, denied = 0;
     try {
-        const check = await backupDB.ref('users').once('value');
-        if (!check.exists()) {
-            showNotification('❌ No data in Backup Firebase!', 'error');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-database"></i> Restore Full Database';
-            progressDiv.classList.add('hidden');
-            return;
-        }
-
-        let restored = 0, failed = 0;
-        const total = BACKUP_PATHS.length;
-
-        for (let i = 0; i < total; i++) {
-            const path = BACKUP_PATHS[i];
-            progressText.textContent = `Restoring: ${path}... (${i + 1}/${total})`;
-            progressBar.style.width = ((i / total) * 100) + '%';
+        if (!(await isMainAdmin())) throw new Error(MAIN_ADMIN_EMAIL + ' (main admin) se login karein');
+        for (let i = 0; i < SYNC_PATHS.length; i++) {
+            const path = SYNC_PATHS[i];
+            txt.textContent = `Checking: ${path}... (${i + 1}/${SYNC_PATHS.length})`;
+            bar.style.width = ((i / SYNC_PATHS.length) * 100) + '%';
             try {
-                const snap = await backupDB.ref(path).once('value');
-                let data = snap.val();
-                if (data) {
-                    Object.keys(data).forEach(key => {
-                        if (data[key] && typeof data[key] === 'object') {
-                            if (data[key]._backupTime) delete data[key]._backupTime;
-                            if (data[key].backupUpdatedAt) delete data[key].backupUpdatedAt;
-                        }
-                    });
-                    if (data._backupTime) delete data._backupTime;
-                    if (data.backupUpdatedAt) delete data.backupUpdatedAt;
-
-                    await retryOperation(async () => {
-                        await mainDB.ref(path).set(data);
-                    });
-                    restored++;
+                const mk = await shallowKeys(mainDB, path, true), bk = await shallowKeys(backupDB, path, false);
+                if (mk === null || bk === null) { denied++; continue; }
+                const mset = new Set(mk);
+                const missing = bk.filter(k => !mset.has(k) && k !== '(value)');
+                if (!missing.length) continue;
+                const data = (await backupDB.ref(path).once('value')).val() || {};
+                for (let j = 0; j < missing.length; j += 50) {
+                    const chunk = {};
+                    missing.slice(j, j + 50).forEach(k => { chunk[k] = cleanMeta(data[k]); });
+                    await retryOperation(() => mainDB.ref(path).update(chunk));
+                    restored += Object.keys(chunk).length;
                 }
             } catch (e) {
-                failed++;
+                if (isDenied(e)) denied++; else failed++;
                 console.error('Restore failed for', path, e);
             }
-            await new Promise(r => setTimeout(r, 50));
         }
-
-        progressBar.style.width = '100%';
-        progressText.textContent = `✅ Complete! ${restored}/${total} paths restored`;
-        showNotification(`Restore complete! ${restored}/${total} paths`, failed > 0 ? 'warning' : 'success');
-        addLog('Restore Full Database', failed > 0 ? 'warning' : 'success', `${restored}/${total} paths`);
-        await saveBackupLog('system', 'all', 'restore_full', failed > 0 ? 'warning' : 'success', `${restored}/${total} paths`);
-        checkStatus();
-
-        setTimeout(() => {
-            progressDiv.classList.add('hidden');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-database"></i> Restore Full Database';
-        }, 3000);
-
+        bar.style.width = '100%';
+        txt.textContent = `✅ Complete! ${restored} missing records restored` + (denied ? `, ${denied} paths denied by rules` : '') + (failed ? `, ${failed} failed` : '');
+        showNotification(`Restore complete! ${restored} records`, failed || denied ? 'warning' : 'success');
+        addLog('Restore Missing Data', failed ? 'warning' : 'success', `${restored} records, denied ${denied}, failed ${failed}`);
+        await saveBackupLog('system', 'all', 'restore_missing', failed ? 'warning' : 'success', `${restored} records`);
+        checkStatus(true);
     } catch (e) {
-        progressText.textContent = '❌ Error: ' + e.message;
+        txt.textContent = '❌ Error: ' + e.message;
         showNotification('Restore failed: ' + e.message, 'error');
-        addLog('Restore Full Database', 'failed', e.message);
-        await saveBackupLog('system', 'all', 'restore_full', 'failed', e.message);
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-database"></i> Restore Full Database';
+        addLog('Restore Missing Data', 'failed', e.message);
     }
+    setTimeout(() => { pd.classList.add('hidden'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-database"></i> Restore Full Database'; }, 3000);
 }
 
 // ==================== ENTER KEY ====================
 document.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        const loginForm = document.getElementById('loginForm');
-        const signupForm = document.getElementById('signupForm');
-        if (loginForm && loginForm.style.display !== 'none') {
-            handleLogin();
-        } else if (signupForm && signupForm.style.display !== 'none') {
-            handleSignup();
-        }
-    }
+    if (e.key !== 'Enter') return;
+    const l = document.getElementById('loginForm'), s = document.getElementById('signupForm');
+    const lp = document.getElementById('loginPage');
+    if (!lp || lp.style.display === 'none') return;
+    if (l && l.style.display !== 'none') handleLogin();
+    else if (s && s.style.display !== 'none') handleSignup();
 });
 
-// ==================== INIT ====================
-window.addEventListener('DOMContentLoaded', () => {
-    initFirebase();
-});
+window.addEventListener('DOMContentLoaded', initFirebase);
