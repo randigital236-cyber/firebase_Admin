@@ -87,16 +87,28 @@ async function isMainAdmin() {
     try { return (await mainDB.ref('users/' + u.uid + '/role').once('value')).val() === 'admin'; } catch (e) { return false; }
 }
 
-// Sirf keys (data download nahi) - REST shallow
+// Sirf keys - pehle REST shallow (data download nahi), fail ho to SDK se (fallback)
 async function shallowKeys(db, path, authed) {
-    let url = `${db.app.options.databaseURL}/${path}.json?shallow=true`;
-    if (authed) url += `&auth=${await auth.currentUser.getIdToken()}`;
-    const r = await fetch(url);
-    if (r.status === 401 || r.status === 403) return null; // denied
-    if (!r.ok) throw new Error('HTTP ' + r.status + ' (' + path + ')');
-    const j = await r.json();
-    if (j === null) return [];
-    return typeof j === 'object' ? Object.keys(j) : ['(value)'];
+    try {
+        let url = `${db.app.options.databaseURL}/${path}.json?shallow=true`;
+        if (authed) url += `&auth=${await auth.currentUser.getIdToken()}`;
+        const r = await fetch(url);
+        if (r.status === 401 || r.status === 403) return null; // denied
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' (' + path + ')');
+        const j = await r.json();
+        if (j === null) return [];
+        return typeof j === 'object' ? Object.keys(j) : ['(value)'];
+    } catch (e) {
+        // "Failed to fetch" (network/extension/CORS) -> Firebase SDK se keys nikalo
+        try {
+            const v = (await db.ref(path).once('value')).val();
+            if (v === null) return [];
+            return typeof v === 'object' ? Object.keys(v) : ['(value)'];
+        } catch (e2) {
+            if (isDenied(e2)) return null;
+            throw e2;
+        }
+    }
 }
 
 async function saveBackupLog(uid, path, action, status, details) {
